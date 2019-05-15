@@ -3,5 +3,16 @@
     "test": {
       "plugins": ["transform-es2015-modules-commonjs"]
     }
-  }
+  },
+  "presets": [
+    ["env", {
+      "modules": false,
+      "targets": {
+        "browsers": [
+          "IE 11"
+        ],
+      },
+      "useBuiltIns": true
+    }]
+  ]
 }

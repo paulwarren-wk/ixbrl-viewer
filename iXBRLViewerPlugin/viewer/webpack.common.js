@@ -34,7 +34,17 @@ module.exports = {
                             keepClosingSlash: true
                         }
                     }]
+                },
+                {
+                    test: /\.js$/,
+                    use: [ { 
+                        loader: "babel-loader",
+                        query: {
+                            presets: ['@babel/env']
+                        }
+                    }]
                 }
+
             ]
 
 
