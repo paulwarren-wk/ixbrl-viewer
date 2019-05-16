@@ -25,7 +25,7 @@ Period.prototype.toString = function() {
         /* forever */
         s = "None";
     }
-    else if (!this._p.includes('/')) {
+    else if (!this._p.indexOf('/') >= 0) {
         /* instant */
         s = momentToHuman(this.to(), true);
     }
@@ -41,7 +41,7 @@ Period.prototype.toString = function() {
  * object
  */
 Period.prototype.to = function() {
-    if (this._p.includes('/')) {
+    if (this._p.indexOf('/') >= 0) {
         var r = this._p.split('/');
         return xbrlDateToMoment(r[1]);
     }
@@ -54,7 +54,7 @@ Period.prototype.to = function() {
  * Returns null (instant) or start date (duration) as a moment object.
  */
 Period.prototype.from = function() {
-    if (this._p.includes('/')) {
+    if (this._p.indexOf('/') >= 0) {
         var r = this._p.split('/');
         return xbrlDateToMoment(r[0]);
     }
