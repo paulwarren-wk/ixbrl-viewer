@@ -383,6 +383,13 @@ Inspector.prototype.selectDefaultLanguage = function () {
             }
         });
     });
+    $.each(preferredLanguages, function (i, pl) {
+        $.each(al, function (j, l) {
+            if (l.toLowerCase().startsWith(pl.toLowerCase().split('-', 1)[0])) {
+                return l;
+            }
+        });
+    });
     return this._report.availableLanguages()[0];
 }
 
