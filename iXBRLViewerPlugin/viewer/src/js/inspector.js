@@ -376,13 +376,18 @@ Inspector.prototype.selectFact = function (id) {
 Inspector.prototype.selectDefaultLanguage = function () {
     var preferredLanguages = window.navigator.languages || [ window.navigator.language || window.navigator.userLanguage ] ;
     var al = this._report.availableLanguages();
+    var selectedLanguage;
     $.each(preferredLanguages, function (i, pl) {
+        console.log("Preferred language: " + pl);
         $.each(al, function (j, l) {
             if (l.toLowerCase() == pl.toLowerCase()) {
-                return l;
+                selectedLanguage = l;
             }
         });
     });
+    if (selectedLanguage !== undefined) {
+        return selectedLanguage;
+    }
     $.each(preferredLanguages, function (i, pl) {
         $.each(al, function (j, l) {
             if (l.toLowerCase().startsWith(pl.toLowerCase().split('-', 1)[0])) {
@@ -390,7 +395,7 @@ Inspector.prototype.selectDefaultLanguage = function () {
             }
         });
     });
-    return this._report.availableLanguages()[0];
+    return selectedLanguage || this._report.availableLanguages()[0];
 }
 
 Inspector.prototype.setLanguage = function (lang) {
