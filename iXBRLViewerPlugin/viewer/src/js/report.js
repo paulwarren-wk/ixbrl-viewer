@@ -64,6 +64,7 @@ iXBRLReport.prototype.availableLanguages = function() {
             });
         });
         this._availableLanguages = Object.keys(map);
+        this._availableLanguages.sort();
 
     }
     return this._availableLanguages;
