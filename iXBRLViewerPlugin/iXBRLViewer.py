@@ -124,29 +124,30 @@ class IXBRLViewerBuilder:
             self.taxonomyData["roleDefs"].setdefault(prefix,{})["en"] = label
 
     def addConcept(self, concept):
-        labelsRelationshipSet = self.dts.relationshipSet(XbrlConst.conceptLabel)
-        labels = labelsRelationshipSet.fromModelObject(concept)
-        conceptName = self.nsmap.qname(concept.qname)
-        if conceptName not in self.taxonomyData["concepts"]:
-            conceptData = {
-                "labels": {  }
-            }
-            for lr in labels:
-                l = lr.toModelObject
-                conceptData["labels"].setdefault(self.roleMap.getPrefix(l.role),{})[l.xmlLang.lower()] = l.text;
-                self.addLanguage(l.xmlLang.lower());
-
-            refData = []
-            for _refRel in concept.modelXbrl.relationshipSet(XbrlConst.conceptReference).fromModelObject(concept):
-                ref = []
-                for _refPart in _refRel.toModelObject.iterchildren():
-                    ref.append([_refPart.localName, _refPart.stringValue.strip()])
-                refData.append(ref)
-
-            if len(refData) > 0:
-                conceptData['r'] = refData
-
-            self.taxonomyData["concepts"][conceptName] = conceptData
+        if concept is not None:
+            labelsRelationshipSet = self.dts.relationshipSet(XbrlConst.conceptLabel)
+            labels = labelsRelationshipSet.fromModelObject(concept)
+            conceptName = self.nsmap.qname(concept.qname)
+            if conceptName not in self.taxonomyData["concepts"]:
+                conceptData = {
+                    "labels": {  }
+                }
+                for lr in labels:
+                    l = lr.toModelObject
+                    conceptData["labels"].setdefault(self.roleMap.getPrefix(l.role),{})[l.xmlLang.lower()] = l.text;
+                    self.addLanguage(l.xmlLang.lower());
+    
+                refData = []
+                for _refRel in concept.modelXbrl.relationshipSet(XbrlConst.conceptReference).fromModelObject(concept):
+                    ref = []
+                    for _refPart in _refRel.toModelObject.iterchildren():
+                        ref.append([_refPart.localName, _refPart.stringValue.strip()])
+                    refData.append(ref)
+    
+                if len(refData) > 0:
+                    conceptData['r'] = refData
+    
+                self.taxonomyData["concepts"][conceptName] = conceptData
 
     def treeWalk(self, rels, item, indent = 0):
         for r in rels.fromModelObject(item):
@@ -162,14 +163,15 @@ class IXBRLViewerBuilder:
                 rr = dict()
                 relSet = self.dts.relationshipSet(arcrole, ELR)
                 for r in relSet.modelRelationships:
-                    fromKey = self.nsmap.qname(r.fromModelObject.qname)
-                    rel = {
-                        "t": self.nsmap.qname(r.toModelObject.qname),
-                    }
-                    if r.weight is not None:
-                        rel['w'] = r.weight
-                    rr.setdefault(fromKey, []).append(rel)
-                    self.addConcept(r.toModelObject)
+                    if r.toModelObject is not None:
+                        fromKey = self.nsmap.qname(r.fromModelObject.qname)
+                        rel = {
+                            "t": self.nsmap.qname(r.toModelObject.qname),
+                        }
+                        if r.weight is not None:
+                            rel['w'] = r.weight
+                        rr.setdefault(fromKey, []).append(rel)
+                        self.addConcept(r.toModelObject)
 
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
@@ -191,7 +193,10 @@ class IXBRLViewerBuilder:
                 f.set("id","ixv-%d" % (idGen))
             idGen += 1
             conceptName = self.nsmap.qname(f.qname)
-            scheme, ident = f.context.entityIdentifier
+            if f.context is not None:
+                scheme, ident = f.context.entityIdentifier
+            else:
+                scheme = ident = ""
 
             aspects = {
                 "c": conceptName,
@@ -228,9 +233,8 @@ class IXBRLViewerBuilder:
                 self.addConcept(v.dimension)
                 self.addConcept(v.member)
 
-            if f.context.isForeverPeriod:
-                aspects["p"] = "f"
-            elif f.context.isInstantPeriod:
+            # XXX does not support forever periods
+            if f.context.isInstantPeriod:
                 aspects["p"] = self.dateFormat(f.context.instantDatetime.isoformat())
             elif f.context.isStartEndPeriod:
                 aspects["p"] = "%s/%s" % (
