@@ -18,7 +18,7 @@ from arelle.ModelValue import QName
 from lxml import etree
 import json
 import math
-import re
+import re, os
 import pycountry
 from arelle.ValidateXbrlCalcs import inferredDecimals
 from .xhtmlserialize import XHTMLSerializer
@@ -302,7 +302,7 @@ class iXBRLViewer:
     def addFile(self, ivf):
         self.files.append(ivf)
 
-    def save(self, outPath):
+    def save(self, outPath, responseZipStream = None):
         """
         Save the iXBRL viewer
         """
@@ -312,9 +312,13 @@ class iXBRLViewer:
             for f in self.files:
                 filename = os.path.join(outPath, f.filename)
                 self.dts.info("viewer:info", "Writing %s" % filename)
-                with open(filename, "wb") as fout:
-                    writer = XHTMLSerializer()
-                    writer.serialize(f.xmlDocument, fout)
+                writer = XHTMLSerializer()
+                xmls = writer.serialize(f.xmlDocument)
+                if responseZipStream:
+                    responseZipStream.writestr(filename, xmls) 
+                else:
+                    with open(filename, "wb") as fout:
+                        fout.write(xmls)
 
         else:
             if len(self.files) > 1:
@@ -327,6 +331,10 @@ class iXBRLViewer:
                 self.dts.error("viewer:error", "Directory %s does not exist" % os.path.dirname(os.path.abspath(outPath)))
             else:
                 self.dts.info("viewer:info", "Writing %s" % outPath)
-                with open(outPath, "wb") as fout:
-                    writer = XHTMLSerializer()
-                    writer.serialize(self.files[0].xmlDocument, fout)
+                writer = XHTMLSerializer()
+                xmls = writer.serialize(self.files[0].xmlDocument)
+                if responseZipStream:
+                    responseZipStream.writestr(filename, xmls) 
+                else:
+                    with open(outPath, "wb") as fout:
+                        fout.write(xmls)
