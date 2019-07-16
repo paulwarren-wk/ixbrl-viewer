@@ -66,7 +66,7 @@ class NamespaceMap:
 
 class IXBRLViewerBuilder:
 
-    def __init__(self, dts):
+    def __init__(self, dts, fileSuffix = None):
         self.nsmap = NamespaceMap()
         self.roleMap = NamespaceMap()
         self.dts = dts
@@ -75,6 +75,18 @@ class IXBRLViewerBuilder:
             "languages": {},
             "facts": {},
         }
+        self.fileSuffix = fileSuffix
+
+
+    def applyFileSuffix(self, f):
+        if self.fileSuffix is not None:
+            if "." in f:
+                (base, sep, ext) = f.rpartition(".")
+                f = "%s%s.%s" % (base, self.fileSuffix, ext)
+            else:
+                f = f + fileSuffix
+        return f
+
 
     def lineWrap(self, s, n = 80):
         return "\n".join([s[i:i+n] for i in range(0, len(s), n)])
@@ -253,7 +265,7 @@ class IXBRLViewerBuilder:
         if dts.modelDocument.type == Type.INLINEXBRLDOCUMENTSET:
             # Sort by object index to preserve order in which files were specified.
             docSet = sorted(dts.modelDocument.referencesDocument.keys(), key=lambda x: x.objectIndex)
-            docSetFiles = list(map(lambda x: os.path.basename(x.filepath), docSet))
+            docSetFiles = list(map(lambda x: self.applyFileSuffix(os.path.basename(x.filepath)), docSet))
             self.taxonomyData["docSetFiles"] = docSetFiles
 
             for n in range(0, len(docSet)):
@@ -263,7 +275,7 @@ class IXBRLViewerBuilder:
 
         else:
             xmlDocument = dts.modelDocument.xmlDocument
-            filename = os.path.basename(dts.modelDocument.filepath)
+            filename = self.applyFileSuffix(os.path.basename(dts.modelDocument.filepath))
             iv.addFile(iXBRLViewerFile(filename, xmlDocument))
 
         taxonomyDataJSON = self.escapeJSONForScriptTag(json.dumps(self.taxonomyData, indent=1, allow_nan=False))
@@ -306,7 +318,7 @@ class iXBRLViewer:
         """
         Save the iXBRL viewer
         """
-        if os.path.isdir(outPath):
+        if not responseZipStream and os.path.isdir(outPath):
             # If output is a directory, write each file in the doc set to that
             # directory using its existing filename
             for f in self.files:
@@ -314,11 +326,8 @@ class iXBRLViewer:
                 self.dts.info("viewer:info", "Writing %s" % filename)
                 writer = XHTMLSerializer()
                 xmls = writer.serialize(f.xmlDocument)
-                if responseZipStream:
-                    responseZipStream.writestr(filename, xmls) 
-                else:
-                    with open(filename, "wb") as fout:
-                        fout.write(xmls)
+                with open(filename, "wb") as fout:
+                    fout.write(xmls)
 
         else:
             if len(self.files) > 1:
@@ -338,3 +347,10 @@ class iXBRLViewer:
                 else:
                     with open(outPath, "wb") as fout:
                         fout.write(xmls)
+
+    def getViewerFilename(self):
+        """ 
+        Get the filename of the viewer file (which is the first file in a docset). 
+        May have been modified by fileSuffix 
+        """
+        return self.files[0].filename

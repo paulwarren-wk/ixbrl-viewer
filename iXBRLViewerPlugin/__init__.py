@@ -60,11 +60,12 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
     out = getattr(options, 'saveViewerFile', False)
     responseZip = None
 
-    # XXX won't work on docset
+    filenameSuffix = None
     if not out and responseZipStream:
-        out = modelXbrl.modelDocument.basename.rpartition(".")[0] + "-ixbrlView.html"
+        out = modelXbrl.modelDocument.basename
+        filenameSuffix = "-iXBRLview"
     if out:
-        viewerBuilder = IXBRLViewerBuilder(modelXbrl)
+        viewerBuilder = IXBRLViewerBuilder(modelXbrl, filenameSuffix = filenameSuffix)
         if options.viewerURL: 
             scriptUrl = options.viewerURL
         else: # default viewer js file
@@ -126,7 +127,7 @@ def guiRun(cntlr, modelXbrl, attach, responseZipStream=None, *args, **kwargs):
     """ run iXBRL Viewer using GUI interactions for a single instance or testcases """
     if cntlr.hasGui and cntlr.showiXBRLFilingData.get():
         from . import LocalViewer
-        viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
+        viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl, fileSuffix = "-xbrlView")
         iv = viewerBuilder.createViewer(scriptUrl="ixbrlviewer.js")
         # first check if source file was in an archive (e.g., taxonomy package)
         _archiveFilenameParts = archiveFilenameParts(modelXbrl.modelDocument.filepath)
@@ -134,12 +135,11 @@ def guiRun(cntlr, modelXbrl, attach, responseZipStream=None, *args, **kwargs):
             outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
         else: 
             outDir = modelXbrl.modelDocument.filepathdir
-        # XXX won't work on doc sets
-        outFile = modelXbrl.modelDocument.basename.rpartition(".")[0] + "-ixbrlView.html"
-        iv.save(os.path.join(outDir, outFile), responseZipStream)
+
+        iv.save(outDir, responseZipStream)
         _localhost = LocalViewer.init(cntlr, outDir)
         import webbrowser
-        webbrowser.open(url="{}/{}".format(_localhost, outFile))
+        webbrowser.open(url="{}/{}".format(_localhost, iv.getViewerFilename()))
 
 
 __pluginInfo__ = {
