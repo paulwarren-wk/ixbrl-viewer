@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Fact } from "./fact.js"
 import { Footnote } from "./footnote.js"
+import { Fact } from "./fact.js"
+import { ReportFact } from "./reportfact.js"
 import { QName } from "./qname.js"
 import { Concept } from "./concept.js";
 import { ViewerOptions } from "./viewerOptions.js";
 import { setDefault } from "./util.js";
+import { PrefixMap } from './prefixmap.js';
 import $ from 'jquery'
 
 export function iXBRLReport (data) {
@@ -27,6 +29,7 @@ export function iXBRLReport (data) {
     this._ixNodeMap = {};
     this._viewerOptions = new ViewerOptions();
     this._reverseRelationshipCache = {};
+    this.prefixMap = new PrefixMap(this.data.prefixes);
 }
 
 /*
@@ -114,8 +117,16 @@ iXBRLReport.prototype.languageNames = function() {
     return this.data.languages;
 }
 
-iXBRLReport.prototype.getItemById = function(id) {
-    return this._items[id];
+iXBRLReport.prototype.getFactById = function(id) {
+    if (!this._items.hasOwnProperty(id)) {
+        if (this.data.facts.hasOwnProperty(id)) {
+            this._items[id] = new ReportFact(this, id);
+        }
+        else {
+            this._items[id] = null;
+        }
+    }
+    return this.items[id];
 }
 
 
@@ -132,12 +143,9 @@ iXBRLReport.prototype.facts = function() {
     return allItems;
 }
 
-iXBRLReport.prototype.prefixMap = function() {
-    return this.data.prefixes;
-}
 
 iXBRLReport.prototype.qname = function(v) {
-    return new QName(this.prefixMap(), v);
+    return new QName(this.prefixMap, v);
 }
 
 iXBRLReport.prototype.getChildRelationships = function(c, arcrole) {
@@ -187,17 +195,10 @@ iXBRLReport.prototype.getParentRelationships = function(c, arcrole) {
 }
 
 iXBRLReport.prototype.getAlignedFacts = function(f, coveredAspects) {
-    var all = this.facts();
-    var aligned = [];
     if (!coveredAspects) {
         coveredAspects = {};
     }
-    $.each(all, function (i, ff) {
-        if (ff.isAligned(f, coveredAspects)) {
-            aligned.push(ff);
-        }
-    });
-    return aligned; 
+    return this.facts().filter(ff => ff.isAligned(f, coveredAspects));
 }
 
 iXBRLReport.prototype.deduplicate = function (facts) {
@@ -253,4 +254,16 @@ iXBRLReport.prototype.isDocumentSet = function() {
 
 iXBRLReport.prototype.usesAnchoring = function() {
     return this.data.rels["w-n"] !== undefined;
+}
+
+iXBRLReport.prototype.conceptFuzzyFind = function(namespace, localname) {
+    var p = this.prefixMap.getPrefix(namespace);
+    if (p) {
+        var qname = p + ':' + localname;
+        if (this.data.concepts[qname] !== undefined) {
+            // Exact match
+            return qname;
+        }
+    }
+    return Object.keys(this.data.concepts).filter(c => new QName(this.prefixMap, c).localname == localname)[0];
 }

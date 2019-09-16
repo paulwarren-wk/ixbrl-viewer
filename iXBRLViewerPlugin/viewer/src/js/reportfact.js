@@ -12,11 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export function QName(prefixMap, qname) {
-    var a = qname.split(":", 2);
-    this.localname = a[1];
-    this.prefix = a[0];
-    this.namespace = prefixMap.getURI(a[0]); 
-    this.qname = qname;
+
+// ReportFact represents a fact that is present in the current iXBRL document
+// (as opposed to obtained from an external data source)
+//
+// It can be fetched by ID from the report, and has an associated ixNode from
+// the HTML document
+
+import { Fact } from './fact.js';
+
+export function ReportFact(report, factId) {
+    Fact.call(this, report, report.data.facts[factId]);
+    this._ixNode = report.getIXNodeForFactId(factId);
+    this.id = factId;
 }
 
+ReportFact.prototype = Object.create(Fact.prototype);

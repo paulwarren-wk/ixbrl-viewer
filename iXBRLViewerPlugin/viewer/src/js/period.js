@@ -106,3 +106,28 @@ Period.prototype.isEquivalentDuration = function (op) {
 Period.prototype.key = function () {
     return this._p;
 }
+
+Period.prototype.fiscalPeriod = function () {
+    if (!this.from()) {
+        return null;
+    }
+    var days = (this.to().toDate() - this.from().toDate())/(1000 * 60 * 60 * 24);
+    var periods = {
+        "Y": 365, "Q": 90, "M": 30
+    };
+    for (var mult = 1; mult <= 3; mult++) {
+        var fp;
+        Object.keys(periods).forEach(p => {
+            if (days > mult * periods[p] * 0.9 && days < mult * periods[p] * 1.1) {
+                fp = p;
+            }
+        });
+        if (fp == 'Y' && mult == 1) {
+            return fp;
+        }
+        else if (fp) {
+            return mult + fp;
+        }
+    }
+    return null;
+}

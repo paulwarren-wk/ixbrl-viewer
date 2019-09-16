@@ -16,6 +16,7 @@ import $ from 'jquery';
 import Chart from 'chart.js';
 import { AspectSet } from './aspect.js';
 import { wrapLabel } from "./util.js";
+import { XBRLAPI } from './xbrlapi.js';
 
 export function IXBRLChart() {
     this._chart = $('#ixv #chart');
@@ -26,7 +27,12 @@ export function IXBRLChart() {
             c.close();
         }
     });
+    this._api = new XBRLAPI();
+    this._apiFacts = [];
+    var chart = this;
+    $('.fetch-data', this._chart).click(function ()  { chart.fetchAPIData(); });
 }
+
 
 IXBRLChart.prototype.close = function () {
     $('.dialog-mask').hide(); 
@@ -83,6 +89,7 @@ IXBRLChart.prototype.removeAspect = function(a) {
 IXBRLChart.prototype.analyseDimension = function(fact, dims) {
     this._analyseFact = fact;
     this._analyseDims = dims;
+    this._apiFacts = [];
     this._showAnalyseDimensionChart();
 }
 
@@ -109,7 +116,8 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
         covered[dims[1]] = null;
     }
 
-    var facts = fact.report().deduplicate(fact.report().getAlignedFacts(fact, covered));
+    var facts = fact.report().facts().concat(this._apiFacts).filter(f => f.isAligned(fact, covered) && f.isEquivalentDuration(fact));
+    facts = fact.report().deduplicate(facts);
 
     /* Get the unique aspect values along each dimension.  This is to ensure
      * that we assign facts to datasets consistently (we have one dataset per value
@@ -127,7 +135,10 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
         }
     });
     var uv1 = set1av.uniqueValues();
+    uv1.sort(function (a, b) { return a.value().localeCompare(b.value()) });
+    console.log(uv1);
     var uv2 = set2av.uniqueValues();
+    console.log(uv2);
 
     var scale = this._chooseMultiplier(facts);
     var yLabel = fact.unit().valueLabel() + " " + this._multiplierDescription(scale);
@@ -156,7 +167,7 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
             if (dims[1]) {
                 covered[dims[1]] = uv2[j].value();
             }
-            var dp = fact.report().getAlignedFacts(fact, covered);
+            var dp = facts.filter(f => f.isAligned(fact, covered));
             if (dp.length > 0) {
                 dataSets[j].data[i] = dp[0].value()/(10**scale);
             }
@@ -243,8 +254,38 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
 
 IXBRLChart.prototype.setChartSize = function () {
     var c = this._chart;
-    var nh = c.height() - $('.other-aspects').height() - 16;
+    var nh = c.height() - $('.other-aspects').height() - $('.fetch-data').height() - 16;
     $('.chart-container',c).height(nh);
     $('canvas',c).attr('height',nh).height(nh);
 
+}
+
+IXBRLChart.prototype._addAPIFacts = function(facts) {
+    var referenceFact = this._analyseFact;
+    this._apiFacts = facts.filter(f => referenceFact.isEquivalentDuration(f));
+    this._showAnalyseDimensionChart();
+}
+
+IXBRLChart.prototype.fetchAPIData = function () {
+    var fact = this._analyseFact;
+    var dims = this._analyseDims;
+
+    var matchAspects = {};
+    Object.values(fact.aspects()).forEach(a => {
+        if (a.name() == dims[0] || a.name() == dims[1]) {
+            matchAspects[a.name()] = null;
+        }
+        else {
+            matchAspects[a.name()] = a.valueObject();
+        }
+    });
+
+    var fp = fact.period().fiscalPeriod();
+    if (fp) {
+        matchAspects['fp'] = fp;
+    }
+
+    var chart = this;
+
+    this._api.getFacts(fact.report(), matchAspects, function (facts) { chart._addAPIFacts(facts); });
 }

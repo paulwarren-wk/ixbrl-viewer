@@ -27,6 +27,10 @@ Aspect.prototype.name = function() {
     return this._aspect;
 }
 
+Aspect.prototype.qname = function() {
+    return this._report.qname(this._aspect);
+}
+
 Aspect.prototype.label = function() {
     if (this._aspect == 'c') {
         return "Concept";
@@ -47,6 +51,18 @@ Aspect.prototype.label = function() {
 
 Aspect.prototype.value = function() {
     return this._value;
+}
+
+Aspect.prototype.valueObject = function () {
+    if (this._name == 'p') {
+        return new Period(this._name);
+    }
+    if (this._name == 'u') {
+        if (this._value === null) {
+            return null;
+        }
+    }
+    return this._report.qname(this._value);
 }
 
 Aspect.prototype.equalTo = function(a) {

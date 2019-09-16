@@ -42,5 +42,11 @@ module.exports = {
   plugins: [
     // Ignore all locale files of moment.js
     new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
+    new webpack.EnvironmentPlugin({
+        'XBRLUSAPI_CLIENT_ID': '',
+        'XBRLUSAPI_CLIENT_SECRET': '',
+        'XBRLUSAPI_USERNAME': '',
+        'XBRLUSAPI_PASSWORD': ''
+    })
   ]
 };
