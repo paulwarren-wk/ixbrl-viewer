@@ -92,11 +92,12 @@ XBRLAPI.prototype.getFacts = function (report, aspects, callback) {
             "error": function (jqhr, stat, error) {
                 alert("fail");
                 console.log(stat, error);
-            }
+                callback(null);
+            },
         });
     }
     if (!this._token) {
-        this.login(queryFunc);
+        this.login(queryFunc, function () { callback(null) });
     }
     else {
         queryFunc();
@@ -104,7 +105,7 @@ XBRLAPI.prototype.getFacts = function (report, aspects, callback) {
 
 }
 
-XBRLAPI.prototype.login = function (callback) {
+XBRLAPI.prototype.login = function (callback, errorCallback) {
     var api = this;
         var data =  {
             "grant_type": "password", 
@@ -125,6 +126,7 @@ XBRLAPI.prototype.login = function (callback) {
         "error": function (jqhr, stat, error) {
             alert("fail");
             console.log(stat, error);
+            errorCallback();
         }
 
     });

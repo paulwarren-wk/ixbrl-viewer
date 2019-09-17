@@ -21,14 +21,14 @@
   }
 
   .other-aspects {
-    width: 100%;
+    width: 80%;
     position: absolute;
-    bottom: 1.6rem;
+    bottom: 0;
 
     .other-aspect {
       display: inline-block;
-      padding: 5px 10px;
-      margin: 10px;
+      padding: 0.5rem 1rem;
+      margin: 1rem;
 
       &.selected,
       &.addable {
@@ -55,8 +55,46 @@
     }
   }
   .fetch-data {
+    width: 20%;
+    position: absolute;
     cursor: pointer;
     position: absolute;
     bottom: 0;
+    text-align: right;
+    color: @primary;
+    padding: 0.5rem;
+    margin: 1rem;
+    right: 0;
+
+    &::before {
+        .icon-cloud-download();
+        margin-right: 0.5rem;
+        position: relative;
+        top: 0.1rem;
+        display: inline-block;
+    }
+
+    &.fetching {
+        color: @text-grey;
+        cursor: default;
+        
+        &::before {
+            .icon-cog();
+            animation: rotate 2s linear infinite;
+        }
+    }
+
+    &.fetched {
+        display: none;
+    }
   }
+}
+
+@keyframes rotate {
+    0% { 
+        transform:rotate(0deg);
+    }
+    100% { 
+        transform:rotate(360deg);
+    }
 }

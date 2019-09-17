@@ -77,6 +77,7 @@ IXBRLChart.prototype.dataSetColour = function(i) {
 IXBRLChart.prototype.addAspect = function(a) {
     this._analyseDims.push(a);
     this._showAnalyseDimensionChart();
+    this.enableFetchData();
 }
 
 IXBRLChart.prototype.removeAspect = function(a) {
@@ -84,12 +85,14 @@ IXBRLChart.prototype.removeAspect = function(a) {
     $.each(this._analyseDims, function (i,d) { if (d != a) { newDims.push(d) }});
     this._analyseDims = newDims;
     this._showAnalyseDimensionChart();
+    this.enableFetchData();
 }
 
 IXBRLChart.prototype.analyseDimension = function(fact, dims) {
     this._analyseFact = fact;
     this._analyseDims = dims;
     this._apiFacts = [];
+    this.enableFetchData();
     this._showAnalyseDimensionChart();
 }
 
@@ -261,9 +264,27 @@ IXBRLChart.prototype.setChartSize = function () {
 }
 
 IXBRLChart.prototype._addAPIFacts = function(facts) {
-    var referenceFact = this._analyseFact;
-    this._apiFacts = facts.filter(f => referenceFact.isEquivalentDuration(f));
-    this._showAnalyseDimensionChart();
+    if (facts === null) {
+        this.enableFetchData();
+    }
+    else {
+        this.disableFetchData();
+        var referenceFact = this._analyseFact;
+        this._apiFacts = facts.filter(f => referenceFact.isEquivalentDuration(f));
+        this._showAnalyseDimensionChart();
+    }
+}
+
+IXBRLChart.prototype.enableFetchData = function () {
+    $('.fetch-data', this._chart).removeClass("fetching").removeClass("fetched");
+}
+
+IXBRLChart.prototype.disableFetchData = function () {
+    $('.fetch-data', this._chart).removeClass("fetching").addClass("fetched");
+}
+
+IXBRLChart.prototype.fetchDataInProgress = function () {
+    $('.fetch-data', this._chart).removeClass("fetched").addClass("fetching");
 }
 
 IXBRLChart.prototype.fetchAPIData = function () {
@@ -287,5 +308,6 @@ IXBRLChart.prototype.fetchAPIData = function () {
 
     var chart = this;
 
+    this.fetchDataInProgress();
     this._api.getFacts(fact.report(), matchAspects, function (facts) { chart._addAPIFacts(facts); });
 }
