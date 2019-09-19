@@ -17,28 +17,15 @@ import Chart from 'chart.js';
 import { AspectSet } from './aspect.js';
 import { wrapLabel } from "./util.js";
 import { XBRLAPI } from './xbrlapi.js';
+import { Dialog, dialogStack } from './dialog.js';
 
 export function IXBRLChart() {
-    this._chart = $('#ixv #chart');
+    this._chart = $(require('../html/chart.html'));
     var c = this;
-    $('.close', this._chart).click(function () { c.close() });
-    $(document).bind("keyup",function (e) {
-        if (e.keyCode === 27) {
-            c.close();
-        }
-    });
     this._api = new XBRLAPI();
     this._apiFacts = [];
-    var chart = this;
-    $('.fetch-data', this._chart).click(function ()  { chart.fetchAPIData(); });
+    this._dialog = new Dialog(this._chart, { "fullscreen": true } );
 }
-
-
-IXBRLChart.prototype.close = function () {
-    $('.dialog-mask').hide(); 
-    this._chart.hide() ;
-}
-
 
 IXBRLChart.prototype._multiplierDescription = function(m) {
     var desc = {
@@ -106,8 +93,9 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
     var c = this._chart;
     $("canvas",c).remove();
     $("<canvas>").appendTo($(".chart-container",c));
-    $('.dialog-mask').show();
     c.show();
+    this._dialog.show();
+    $('.fetch-data', c).click(function ()  { co.fetchAPIData(); });
 
     /* Find all facts that are aligned with the current fact, except for the
      * two dimensions that we're breaking down by */
@@ -257,7 +245,7 @@ IXBRLChart.prototype._showAnalyseDimensionChart = function() {
 
 IXBRLChart.prototype.setChartSize = function () {
     var c = this._chart;
-    var nh = c.height() - $('.other-aspects').height() - $('.fetch-data').height() - 16;
+    var nh = c.height() - $('.other-aspects').height() ;
     $('.chart-container',c).height(nh);
     $('canvas',c).attr('height',nh).height(nh);
 
@@ -290,6 +278,9 @@ IXBRLChart.prototype.fetchDataInProgress = function () {
 IXBRLChart.prototype.fetchAPIData = function () {
     var fact = this._analyseFact;
     var dims = this._analyseDims;
+
+    var loginDialog = new Dialog($(require('../html/api-login.html')));
+    loginDialog.show();
 
     var matchAspects = {};
     Object.values(fact.aspects()).forEach(a => {
