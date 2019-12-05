@@ -224,7 +224,6 @@ Viewer.prototype._bindHandlers = function () {
     $('#iframe-container .zoom-in').click(function () { viewer.zoomIn() });
     $('#iframe-container .zoom-out').click(function () { viewer.zoomOut() });
 
-
     TableExport.addHandles(this._contents, this._report);
 }
 
@@ -261,12 +260,25 @@ Viewer.prototype.highlightElements = function (ee) {
     ee.addClass("ixbrl-selected");
 }
 
+/*
+ * Takes any .ixbrl-element and returns the ID for fact or footnote that is the
+ * root of the continuation chain in which it appears
+ */
 Viewer.prototype._ixIdForElement = function (e) {
     var id = e.data('ivid');
     if (e.hasClass("ixbrl-continuation")) {
         id = this._continuedAtMap[id].continuationOf;
     }
     return id;
+}
+
+/*
+ * Takes any .ixbrl-element and returns DOM elements for all elements in the
+ * continuation chain in which it appears.
+ */
+Viewer.prototype._continuationElementsForElement = function (e) {
+    var rootId = this._ixIdForElement(e);
+    return this.elementsForItemIds([rootId].concat(this._ixNodeMap[rootId].continuationIds()));
 }
 
 /*
@@ -292,11 +304,13 @@ Viewer.prototype.selectElementByClick = function (e) {
 Viewer.prototype._mouseEnter = function (e) {
     var id = e.data('ivid');
     this.onMouseEnter.fire(id);
+    this._continuationElementsForElement(e).addClass('ixbrl-element-hover');
 }
 
 Viewer.prototype._mouseLeave = function (e) {
     var id = e.data('ivid');
     this.onMouseLeave.fire(id);
+    this._continuationElementsForElement(e).removeClass('ixbrl-element-hover');
 }
 
 Viewer.prototype.highlightRelatedFact = function (f) {
