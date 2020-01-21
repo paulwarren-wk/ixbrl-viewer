@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from .iXBRLViewer import IXBRLViewerBuilder
-
+from .localviewer import localViewer
+from arelle.FileSource import archiveFilenameParts
+import os, zipfile, sys, traceback
 
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
@@ -51,15 +53,15 @@ def iXBRLViewerMenuCommand(cntlr):
         iv.save(dialog.filename())
 
 
-def iXBRLViewerMenuExtender(cntlr, menu, *args, **kwargs):
+def iXBRLViewerToolsMenuExtender(cntlr, menu, *args, **kwargs):
     # Extend menu with an item for the savedts plugin
     menu.add_command(label="Save iXBRL Viewer Instance",
                      underline=0,
                      command=lambda: iXBRLViewerMenuCommand(cntlr))
 
 
-def menuExtender(cntlr, menu, *args, **kwargs):
-    iXBRLViewerMenuExtender(cntlr, menu, *args, **kwargs)
+def toolsMenuExtender(cntlr, menu, *args, **kwargs):
+    iXBRLViewerToolsMenuExtender(cntlr, menu, *args, **kwargs)
 
 
 def commandLineOptionExtender(*args, **kwargs):
@@ -68,6 +70,43 @@ def commandLineOptionExtender(*args, **kwargs):
 
 def commandLineRun(*args, **kwargs):
     iXBRLViewerCommandLineXbrlRun(*args, **kwargs)
+
+def viewMenuExtender(cntlr, viewMenu, *args, **kwargs):
+    # persist menu selections for showing filing data and tables menu
+    from tkinter import Menu, BooleanVar # must only import if GUI present (no tkinter on GUI-less servers)
+    def setLaunchIXBRLViewer(self, *args):
+        cntlr.config["LaunchIXBRLViewer"] = cntlr.launchIXBRLViewer.get()
+        cntlr.saveConfig()
+    erViewMenu = Menu(cntlr.menubar, tearoff=0)
+    viewMenu.add_cascade(label=_("iXBRL Viewer"), menu=erViewMenu, underline=0)
+    cntlr.launchIXBRLViewer = BooleanVar(value=cntlr.config.get("Launch iXBRL Viewer", True))
+    cntlr.launchIXBRLViewer.trace("w", setLaunchIXBRLViewer)
+    erViewMenu.add_checkbutton(label=_("Launch viewer on load"), underline=0, variable=cntlr.launchIXBRLViewer, onvalue=True, offvalue=False)
+
+
+
+def guiRun(cntlr, modelXbrl, attach, *args, **kwargs):
+    """ run iXBRL Viewer using GUI interactions for a single instance or testcases """
+    if cntlr.hasGui and cntlr.launchIXBRLViewer.get():
+        from arelle import LocalViewer
+        try:
+            viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
+            iv = viewerBuilder.createViewer(scriptUrl="ixbrlviewer.js")
+            # first check if source file was in an archive (e.g., taxonomy package)
+            _archiveFilenameParts = archiveFilenameParts(modelXbrl.modelDocument.filepath)
+            if _archiveFilenameParts is not None:
+                outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
+            else: 
+                outDir = modelXbrl.modelDocument.filepathdir
+            out = modelXbrl.modelDocument.basename.rpartition(".")[0] + "-ixbrlView.html"
+            iv.save(os.path.join(outDir, out))
+            _localhost = localViewer.init(cntlr, outDir)
+            import webbrowser
+            webbrowser.open(url="{}/{}".format(_localhost, out))
+        except Exception as ex:
+            modelXbrl.error("viewer:exception",
+                            "Exception %(exception)s \sTraceback %(traceback)s",
+                            modelObject=modelXbrl, exception=ex, traceback=traceback.format_tb(sys.exc_info()[2]))
 
 
 __pluginInfo__ = {
@@ -80,5 +119,7 @@ __pluginInfo__ = {
     'imports': ["./iXBRLViewer.py"],
     'CntlrCmdLine.Options': commandLineOptionExtender,
     'CntlrCmdLine.Xbrl.Run': commandLineRun,
-    'CntlrWinMain.Menu.Tools': menuExtender,
+    'CntlrWinMain.Menu.Tools': toolsMenuExtender,
+    'CntlrWinMain.Menu.View': viewMenuExtender,
+    'CntlrWinMain.Xbrl.Loaded': guiRun,
 }
