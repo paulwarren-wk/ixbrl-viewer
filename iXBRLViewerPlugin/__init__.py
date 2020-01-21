@@ -83,15 +83,13 @@ def viewMenuExtender(cntlr, viewMenu, *args, **kwargs):
     cntlr.launchIXBRLViewer.trace("w", setLaunchIXBRLViewer)
     erViewMenu.add_checkbutton(label=_("Launch viewer on load"), underline=0, variable=cntlr.launchIXBRLViewer, onvalue=True, offvalue=False)
 
-
-
 def guiRun(cntlr, modelXbrl, attach, *args, **kwargs):
     """ run iXBRL Viewer using GUI interactions for a single instance or testcases """
     if cntlr.hasGui and cntlr.launchIXBRLViewer.get():
         from arelle import LocalViewer
         try:
             viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
-            iv = viewerBuilder.createViewer(scriptUrl="ixbrlviewer.js")
+            iv = viewerBuilder.createViewer(scriptUrl="/ixbrlviewer.js")
             # first check if source file was in an archive (e.g., taxonomy package)
             _archiveFilenameParts = archiveFilenameParts(modelXbrl.modelDocument.filepath)
             if _archiveFilenameParts is not None:
