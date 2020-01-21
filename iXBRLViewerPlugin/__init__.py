@@ -13,9 +13,7 @@
 # limitations under the License.
 
 from .iXBRLViewer import IXBRLViewerBuilder
-from .localviewer import localViewer
-from arelle.FileSource import archiveFilenameParts
-import os, zipfile, sys, traceback
+from .localviewer import launchLocalViewer
 
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
@@ -86,26 +84,7 @@ def viewMenuExtender(cntlr, viewMenu, *args, **kwargs):
 def guiRun(cntlr, modelXbrl, attach, *args, **kwargs):
     """ run iXBRL Viewer using GUI interactions for a single instance or testcases """
     if cntlr.hasGui and cntlr.launchIXBRLViewer.get():
-        from arelle import LocalViewer
-        try:
-            viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
-            iv = viewerBuilder.createViewer(scriptUrl="/ixbrlviewer.js")
-            # first check if source file was in an archive (e.g., taxonomy package)
-            _archiveFilenameParts = archiveFilenameParts(modelXbrl.modelDocument.filepath)
-            if _archiveFilenameParts is not None:
-                outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
-            else: 
-                outDir = modelXbrl.modelDocument.filepathdir
-            out = modelXbrl.modelDocument.basename.rpartition(".")[0] + "-ixbrlView.html"
-            iv.save(os.path.join(outDir, out))
-            _localhost = localViewer.init(cntlr, outDir)
-            import webbrowser
-            webbrowser.open(url="{}/{}".format(_localhost, out))
-        except Exception as ex:
-            modelXbrl.error("viewer:exception",
-                            "Exception %(exception)s \sTraceback %(traceback)s",
-                            modelObject=modelXbrl, exception=ex, traceback=traceback.format_tb(sys.exc_info()[2]))
-
+        launchLocalViewer(cntlr, modelXbrl)
 
 __pluginInfo__ = {
     'name': 'ixbrl-viewer',

@@ -1,7 +1,13 @@
 from arelle.LocalViewer import LocalViewer
 from arelle.webserver.bottle import static_file
+from arelle.FileSource import archiveFilenameParts
 import os
 import logging
+import os, zipfile, sys, traceback
+
+from .iXBRLViewer import IXBRLViewerBuilder
+
+VIEWER_SUFFIX = ".ixbrlview"
 
 class iXBRLViewerLocalViewer(LocalViewer):
     # plugin-specific local file handler
@@ -13,12 +19,12 @@ class iXBRLViewerLocalViewer(LocalViewer):
             # check if file is in the current or parent directory (may bve
             _fileDir = self.reportsFolders[int(_report)]
             _fileExists = False
-            if os.path.exists(os.path.join(_fileDir, _file)):
+            if os.path.exists(os.path.join(_fileDir, _file + VIEWER_SUFFIX)):
+                _file = _file + VIEWER_SUFFIX
+                _fileExists
+            elif os.path.exists(os.path.join(_fileDir, _file)):
                 _fileExists = True
-            else:
-                if os.path.exists(os.path.join(os.path.dirname(_fileDir), _file)):
-                    _fileDir = os.path.dirname(_fileDir)
-                    _fileExists = True
+
             if not _fileExists:
                 self.cntlr.addToLog("http://localhost:{}/{}".format(self.port,file), messageCode="localViewer:fileNotFound",level=logging.DEBUG)
             return static_file(_file, root=_fileDir,
@@ -29,3 +35,25 @@ class iXBRLViewerLocalViewer(LocalViewer):
         return static_file(file, root="/") # probably can't get here unless path is wrong
 
 localViewer = iXBRLViewerLocalViewer("iXBRL Viewer",  os.path.dirname(__file__))
+
+def launchLocalViewer(cntlr, modelXbrl):
+    from arelle import LocalViewer
+    try:
+        viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
+        iv = viewerBuilder.createViewer(scriptUrl="/ixbrlviewer.js")
+        # first check if source file was in an archive (e.g., taxonomy package)
+        _archiveFilenameParts = archiveFilenameParts(modelXbrl.modelDocument.filepath)
+        if _archiveFilenameParts is not None:
+            outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
+        else: 
+            outDir = modelXbrl.modelDocument.filepathdir
+        out = modelXbrl.modelDocument.basename + VIEWER_SUFFIX
+        iv.save(os.path.join(outDir, out))
+        _localhost = localViewer.init(cntlr, outDir)
+        import webbrowser
+        webbrowser.open(url="{}/{}".format(_localhost, modelXbrl.modelDocument.basename))
+    except Exception as ex:
+        modelXbrl.error("viewer:exception",
+                        "Exception %(exception)s \sTraceback %(traceback)s",
+                        modelObject=modelXbrl, exception=ex, traceback=traceback.format_tb(sys.exc_info()[2]))
+
