@@ -24,6 +24,9 @@ from arelle.ValidateXbrlCalcs import inferredDecimals
 from arelle.ModelRelationshipSet import ModelRelationshipSet
 from .xhtmlserialize import XHTMLSerializer
 import os
+import io
+import zipfile
+from arelle.PythonUtil import attrdict
 
 class NamespaceMap:
     """
@@ -313,7 +316,15 @@ class iXBRLViewer:
         """
         Save the iXBRL viewer
         """
-        if os.path.isdir(outPath):
+        if isinstance(outPath, io.BytesIO): # zip output stream
+            with zipfile.ZipFile(outPath, "w", zipfile.ZIP_DEFLATED, True) as zout:
+                for f in self.files:
+                    self.dts.info("viewer:info", "Saving in output zip %s" % f.filename)
+                    fout = attrdict(write=lambda s: zout.writestr(f.filename, s))
+                    writer = XHTMLSerializer()
+                    writer.serialize(f.xmlDocument, fout)
+                zout.write(os.path.join(os.path.dirname(__file__), "viewer", "dist", "ixbrlviewer.js"), "ixbrlviewer.js")
+        elif os.path.isdir(outPath):
             # If output is a directory, write each file in the doc set to that
             # directory using its existing filename
             for f in self.files:
@@ -322,7 +333,6 @@ class iXBRLViewer:
                 with open(filename, "wb") as fout:
                     writer = XHTMLSerializer()
                     writer.serialize(f.xmlDocument, fout)
-
         else:
             if len(self.files) > 1:
                 self.dts.error("viewer:error", "More than one file in input, but output is not a directory")
