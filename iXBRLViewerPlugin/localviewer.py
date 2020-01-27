@@ -25,7 +25,7 @@ VIEWER_SUFFIX = ".ixbrlview"
 
 class iXBRLViewerLocalViewer(LocalViewer):
     # plugin-specific local file handler
-    def getLocalFile(self, file=None, relpath=None):
+    def getLocalFile(self, file, relpath, request):
         _report, _sep, _file = file.partition("/")
         if file == 'ixbrlviewer.js':
             return static_file('ixbrlviewer.js', os.path.abspath(os.path.join(os.path.dirname(__file__), "viewer", "dist")))
@@ -41,11 +41,7 @@ class iXBRLViewerLocalViewer(LocalViewer):
 
             if not _fileExists:
                 self.cntlr.addToLog("http://localhost:{}/{}".format(self.port,file), messageCode="localViewer:fileNotFound",level=logging.DEBUG)
-            return static_file(_file, root=_fileDir,
-                               # extra_headers modification to py-bottle
-                               more_headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
-                                             'Pragma': 'no-cache',
-                                             'Expires': '0'})
+            return static_file(_file, root=_fileDir, more_headers=self.noCacheHeaders) # extra_headers modification to py-bottle
         return static_file(file, root="/") # probably can't get here unless path is wrong
 
 localViewer = iXBRLViewerLocalViewer("iXBRL Viewer",  os.path.dirname(__file__))
