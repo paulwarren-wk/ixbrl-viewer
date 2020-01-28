@@ -17,6 +17,7 @@ import { Footnote } from "./footnote.js"
 import { QName } from "./qname.js"
 import { Concept } from "./concept.js";
 import { ViewerOptions } from "./viewerOptions.js";
+import { setDefault } from "./util.js";
 import $ from 'jquery'
 
 export function iXBRLReport (data) {
@@ -133,7 +134,7 @@ iXBRLReport.prototype.qname = function(v) {
     return new QName(this.prefixMap(), v);
 }
 
-iXBRLReport.prototype.getChildConcepts = function(c,arcrole) {
+iXBRLReport.prototype.getChildConcepts = function(c, arcrole) {
     var rels = {}
     if (this.data.rels.hasOwnProperty(arcrole)) {
         $.each(this.data.rels[arcrole], function (elr, rr) {
@@ -141,6 +142,22 @@ iXBRLReport.prototype.getChildConcepts = function(c,arcrole) {
                 rels[elr] = rr[c]
             }
         })
+    }
+    return rels;
+}
+
+iXBRLReport.prototype.getParentConcepts = function(c, arcrole) {
+    var rels = {}
+    if (arcrole in this.data.rels) {
+        $.each(this.data.rels[arcrole], (elr, srcs) => {
+            $.each(srcs, (src, rr) => {
+                $.each(rr, (i, r) => {
+                    if (r.t == c) {
+                        setDefault(rels, elr, []).push(Object.assign({s: src}, r));
+                    }
+                });
+            });
+        });
     }
     return rels;
 }

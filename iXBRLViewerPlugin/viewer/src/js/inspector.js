@@ -244,7 +244,7 @@ Inspector.prototype._calculationHTML = function (fact, elr) {
 
         var rCalc = calc.resolvedCalculation(e);
         var calcBody = $('<div></div>');
-        $.each(rCalc, function (i, r) {
+        $.each(rCalc.children, function (i, r) {
             var itemHTML = $("<div></div>")
                 .addClass("item")
                 .append($("<span></span>").addClass("weight").text(r.weightSign + " "))
@@ -264,6 +264,22 @@ Inspector.prototype._calculationHTML = function (fact, elr) {
             .append($("<span></span>").addClass("weight"))
             .append($("<span></span>").addClass("concept-name").text(fact.getLabel("std")))
             .appendTo(calcBody);
+
+        $.each(rCalc.parents, function (i, r) {
+            var itemHTML = $("<div></div>")
+                .addClass("item").addClass("parent")
+                .append($("<span></span>").addClass("concept-name").text(report.getLabel(r.concept, "std")))
+                .appendTo(calcBody);
+
+            if (r.facts) {
+                itemHTML.addClass("fact-link");
+                itemHTML.data('ivid', r.facts);
+                itemHTML.click(function () { inspector.selectItem(Object.values(r.facts)[0].id ) });
+                itemHTML.mouseenter(function () { $.each(r.facts, function (k,f) { viewer.linkedHighlightFact(f); })});
+                itemHTML.mouseleave(function () { $.each(r.facts, function (k,f) { viewer.clearLinkedHighlightFact(f); })});
+                $.each(r.facts, function (k,f) { viewer.highlightRelatedFact(f); });
+            }
+        });
 
         a.addCard($("<span></span>").text(label), calcBody, e == elr);
 

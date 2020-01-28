@@ -13,13 +13,15 @@
 // limitations under the License.
 
 import $ from 'jquery';
+import { setDefault } from './util.js';
 
 export function Calculation(fact) {
     this._fact = fact;
 }
 
 /* Resolve calculation relationships to a map of maps of maps 
- * (ELR->conceptName->fact id->fact object) */
+ * (ELR->conceptName->fact id->fact object) 
+ * Finds facts for all calculation child and parents of the current fact */
 
 Calculation.prototype.calculationFacts = function () {
     var fact = this._fact;
@@ -27,16 +29,27 @@ Calculation.prototype.calculationFacts = function () {
     if (!this._conceptToFact) {
         var rels = report.getChildConcepts(fact.conceptName(), "calc")
         var ctf = {};
-        $.each(rels, function (elr, rr) {
+        $.each(rels, (elr, rr) => {
             ctf[elr] = {};
             if (rr.length > 0) {
-                var otherFacts = report.getAlignedFacts(fact, {"c": $.map(rr, function (r,i) { return r.t }) });
-                $.each(otherFacts, function (i,ff) {
-                    ctf[elr][ff.conceptName()] = ctf[elr][ff.conceptName()] || {};
-                    ctf[elr][ff.conceptName()][ff.id] = ff;
-                });
+                var otherFacts = report.getAlignedFacts(fact, {"c": $.map(rr, r => r.t ) });
+                for (var ff of otherFacts) {
+                    setDefault(ctf[elr], ff.conceptName(), {})[ff.id] = ff;
+                }
             }
         });
+
+        rels = report.getParentConcepts(fact.conceptName(), "calc")
+        $.each(rels, (elr, rr) => {
+            if (rr.length > 0) {
+                setDefault(ctf, elr, {});
+                var otherFacts = report.getAlignedFacts(fact, {"c": $.map(rr, (r) => r.s ) });
+                for (var ff of otherFacts) {
+                    setDefault(ctf[elr], ff.conceptName(), {})[ff.id] = ff;
+                }
+            }
+        });
+
         this._conceptToFact = ctf;
     }
     return this._conceptToFact;
@@ -52,6 +65,8 @@ Calculation.prototype.elrs = function () {
     var elrs = {};
     $.each(ctf, function (k,v) {
         if (Object.keys(v).length > 0) {
+            // Extract the last component of the URL to use as a label. Would
+            // be better to use role definition or generic labels
             elrs[k] = k.match(/[^\/]*$/)[0];
         }
     }); 
@@ -91,7 +106,7 @@ Calculation.prototype.bestELRForFactSet = function(facts) {
  *   concept (conceptName)
  */
 Calculation.prototype.resolvedCalculation = function(elr) {
-    var calc = [];
+    var calc = { children: [], parents: [] };
     var calcFacts = this.calculationFacts()[elr];
     var rels = this._fact.report().getChildConcepts(this._fact.conceptName(), "calc")[elr];
     $.each(rels, function (i, r) {
@@ -105,7 +120,21 @@ Calculation.prototype.resolvedCalculation = function(elr) {
         else {
             s = r.w;
         }
-        calc.push({ weightSign: s, weight: r.w, facts: calcFacts[r.t], concept: r.t });
+        calc.children.push({ weightSign: s, weight: r.w, facts: calcFacts[r.t], concept: r.t });
+    });
+    rels = this._fact.report().getParentConcepts(this._fact.conceptName(), "calc")[elr];
+    $.each(rels, function (i, r) {
+        var s;
+        if (r.w == 1) {
+            s = '+';
+        }
+        else if (r.w == -1) {
+            s = '-';
+        }
+        else {
+            s = r.w;
+        }
+        calc.parents.push({ weightSign: s, weight: r.w, facts: calcFacts[r.s], concept: r.s });
     });
     return calc;
     
