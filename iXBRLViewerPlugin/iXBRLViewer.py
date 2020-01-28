@@ -157,7 +157,8 @@ class IXBRLViewerBuilder:
 
     def treeWalk(self, rels, item, indent = 0):
         for r in rels.fromModelObject(item):
-            self.treeWalk(rels, r.toModelObject, indent + 1)
+            if r.toModelObject is not None:
+                self.treeWalk(rels, r.toModelObject, indent + 1)
 
     def getRelationships(self):
         rels = {}
@@ -169,14 +170,15 @@ class IXBRLViewerBuilder:
                 rr = dict()
                 relSet = self.dts.relationshipSet(arcrole, ELR)
                 for r in relSet.modelRelationships:
-                    fromKey = self.nsmap.qname(r.fromModelObject.qname)
-                    rel = {
-                        "t": self.nsmap.qname(r.toModelObject.qname),
-                    }
-                    if r.weight is not None:
-                        rel['w'] = r.weight
-                    rr.setdefault(fromKey, []).append(rel)
-                    self.addConcept(r.toModelObject)
+                    if r.fromModelObject is not None and r.toModelObject is not None:
+                        fromKey = self.nsmap.qname(r.fromModelObject.qname)
+                        rel = {
+                            "t": self.nsmap.qname(r.toModelObject.qname),
+                        }
+                        if r.weight is not None:
+                            rel['w'] = r.weight
+                        rr.setdefault(fromKey, []).append(rel)
+                        self.addConcept(r.toModelObject)
 
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
@@ -249,10 +251,12 @@ class IXBRLViewerBuilder:
             frels = self.footnoteRelationshipSet.fromModelObject(f)
             if frels:
                 for frel in frels:
-                    factData.setdefault("fn", []).append(frel.toModelObject.id)
+                    if frel.toModelObject is not None:
+                        factData.setdefault("fn", []).append(frel.toModelObject.id)
 
             self.taxonomyData["facts"][f.id] = factData
-            self.addConcept(f.concept)
+            if f.concept is not None:
+                self.addConcept(f.concept)
 
         self.taxonomyData["prefixes"] = self.nsmap.prefixmap
         self.taxonomyData["roles"] = self.roleMap.prefixmap
