@@ -23,6 +23,7 @@ import pycountry
 from arelle.ValidateXbrlCalcs import inferredDecimals
 from arelle.ModelRelationshipSet import ModelRelationshipSet
 from .xhtmlserialize import XHTMLSerializer
+from .calc2 import serializeCalc2Results
 import os
 
 class NamespaceMap:
@@ -251,6 +252,8 @@ class IXBRLViewerBuilder:
             self.taxonomyData["facts"][f.id] = factData
             self.addConcept(f.concept)
 
+        serialiseCalc2Results(dts, taxonomyData)
+
         self.taxonomyData["prefixes"] = self.nsmap.prefixmap
         self.taxonomyData["roles"] = self.roleMap.prefixmap
         self.taxonomyData["rels"] = self.getRelationships()
@@ -272,6 +275,7 @@ class IXBRLViewerBuilder:
             xmlDocument = dts.modelDocument.xmlDocument
             filename = os.path.basename(dts.modelDocument.filepath)
             iv.addFile(iXBRLViewerFile(filename, xmlDocument))
+
 
         taxonomyDataJSON = self.escapeJSONForScriptTag(json.dumps(self.taxonomyData, indent=1, allow_nan=False))
 
