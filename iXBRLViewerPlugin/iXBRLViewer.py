@@ -72,12 +72,13 @@ class IXBRLViewerBuilder:
         self.nsmap = NamespaceMap()
         self.roleMap = NamespaceMap()
         self.dts = dts
-        self.taxonomyData = {
+        self.viewerData = {
             "concepts": {},
             "languages": {},
             "facts": {},
         }
         self.footnoteRelationshipSet = ModelRelationshipSet(dts, "XBRL-footnotes")
+        self.idGen = 0
 
     def lineWrap(self, s, n = 80):
         return "\n".join([s[i:i+n] for i in range(0, len(s), n)])
@@ -116,23 +117,23 @@ class IXBRLViewerBuilder:
         return name
 
     def addLanguage(self, langCode):
-        if langCode not in self.taxonomyData["languages"]:
-            self.taxonomyData["languages"][langCode] = self.makeLanguageName(langCode)
+        if langCode not in self.viewerData["languages"]:
+            self.viewerData["languages"][langCode] = self.makeLanguageName(langCode)
             
     def addELR(self, elr):
         prefix = self.roleMap.getPrefix(elr)
-        if self.taxonomyData.setdefault("roleDefs",{}).get(prefix, None) is None:
+        if self.viewerData.setdefault("roleDefs",{}).get(prefix, None) is None:
             rt = self.dts.roleTypes[elr]
             label = elr
             if len(rt) > 0:
                 label = rt[0].definition
-            self.taxonomyData["roleDefs"].setdefault(prefix,{})["en"] = label
+            self.viewerData["roleDefs"].setdefault(prefix,{})["en"] = label
 
     def addConcept(self, concept):
         labelsRelationshipSet = self.dts.relationshipSet(XbrlConst.conceptLabel)
         labels = labelsRelationshipSet.fromModelObject(concept)
         conceptName = self.nsmap.qname(concept.qname)
-        if conceptName not in self.taxonomyData["concepts"]:
+        if conceptName not in self.viewerData["concepts"]:
             conceptData = {
                 "labels": {  }
             }
@@ -151,7 +152,7 @@ class IXBRLViewerBuilder:
             if len(refData) > 0:
                 conceptData['r'] = refData
 
-            self.taxonomyData["concepts"][conceptName] = conceptData
+            self.viewerData["concepts"][conceptName] = conceptData
 
     def treeWalk(self, rels, item, indent = 0):
         for r in rels.fromModelObject(item):
@@ -179,6 +180,11 @@ class IXBRLViewerBuilder:
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
 
+    def nextFactId(self):
+        self.idGen += 1
+        return "ixv-%d" % (self.idGen)
+
+
     def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js"):
         """
         Create an iXBRL file with XBRL data as a JSON blob, and script tags added
@@ -186,7 +192,6 @@ class IXBRLViewerBuilder:
 
         dts = self.dts
         iv = iXBRLViewer(dts)
-        idGen = 0
         self.roleMap.getPrefix(XbrlConst.standardLabel,"std")
         self.roleMap.getPrefix(XbrlConst.documentationLabel,"doc")
         self.roleMap.getPrefix(XbrlConst.summationItem,"calc")
@@ -194,8 +199,7 @@ class IXBRLViewerBuilder:
 
         for f in dts.facts:
             if f.id is None:
-                f.set("id","ixv-%d" % (idGen))
-            idGen += 1
+                f.set("id", self.nextFactId)
             conceptName = self.nsmap.qname(f.qname)
             scheme, ident = f.context.entityIdentifier
 
@@ -249,14 +253,14 @@ class IXBRLViewerBuilder:
                 for frel in frels:
                     factData.setdefault("fn", []).append(frel.toModelObject.id)
 
-            self.taxonomyData["facts"][f.id] = factData
+            self.viewerData["facts"][f.id] = factData
             self.addConcept(f.concept)
 
-        serialiseCalc2Results(dts, taxonomyData)
+        serialiseCalc2Results(dts, viewerData)
 
-        self.taxonomyData["prefixes"] = self.nsmap.prefixmap
-        self.taxonomyData["roles"] = self.roleMap.prefixmap
-        self.taxonomyData["rels"] = self.getRelationships()
+        self.viewerData["prefixes"] = self.nsmap.prefixmap
+        self.viewerData["roles"] = self.roleMap.prefixmap
+        self.viewerData["rels"] = self.getRelationships()
 
         dts.info("viewer:info", "Creating iXBRL viewer")
 
@@ -264,7 +268,7 @@ class IXBRLViewerBuilder:
             # Sort by object index to preserve order in which files were specified.
             docSet = sorted(dts.modelDocument.referencesDocument.keys(), key=lambda x: x.objectIndex)
             docSetFiles = list(map(lambda x: os.path.basename(x.filepath), docSet))
-            self.taxonomyData["docSetFiles"] = docSetFiles
+            self.viewerData["docSetFiles"] = docSetFiles
 
             for n in range(0, len(docSet)):
                 iv.addFile(iXBRLViewerFile(docSetFiles[n], docSet[n].xmlDocument))
@@ -277,7 +281,7 @@ class IXBRLViewerBuilder:
             iv.addFile(iXBRLViewerFile(filename, xmlDocument))
 
 
-        taxonomyDataJSON = self.escapeJSONForScriptTag(json.dumps(self.taxonomyData, indent=1, allow_nan=False))
+        viewerDataJSON = self.escapeJSONForScriptTag(json.dumps(self.viewerData, indent=1, allow_nan=False))
 
         for child in xmlDocument.getroot():
             if child.tag == '{http://www.w3.org/1999/xhtml}body':
@@ -291,7 +295,7 @@ class IXBRLViewerBuilder:
                 # Putting this in the header can interfere with character set
                 # auto detection
                 e = etree.fromstring("<script xmlns='http://www.w3.org/1999/xhtml' type='application/x.ixbrl-viewer+json'></script>")
-                e.text = taxonomyDataJSON
+                e.text = viewerDataJSON
                 child.append(e)
                 child.append(etree.Comment("END IXBRL VIEWER EXTENSIONS"))
                 break

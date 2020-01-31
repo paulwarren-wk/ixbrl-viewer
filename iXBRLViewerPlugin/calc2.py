@@ -12,12 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+inferredFactId = 0
+
+def createInferredFact(builder, dts, viewerData, dp, inferredValue):
+    fid = builder.nextFactId()
 
 
-def serializeCalc2Results(dts, viewerData):
+def serializeCalc2Results(builder, dts):
 
     calcs = getattr(dts, "calc2Results", None)
     if calcs is None:
         return
 
-    pass
+    from calc2 import FactBasedDataPointValue, InferredDataPointValue
+
+    dpi = 0
+    calcData = {}
+    for dp, dpv in calcs.dataPoints().items():
+        d = { "v": [] }
+        for v in dpv.values():
+            if type(v) == FactBasedDataPointValue:
+                d[v].append(v.fact.id)
+            else:
+                pass
+
+        if dpv.inconsistent:
+            dpv[i] = True
+
+        calcData[dpi] = d
+        dpi += 1
+
+    builder.viewerData["calc2data"] = calcData
+        
+
