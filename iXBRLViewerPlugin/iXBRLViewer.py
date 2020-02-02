@@ -256,7 +256,7 @@ class IXBRLViewerBuilder:
             self.viewerData["facts"][f.id] = factData
             self.addConcept(f.concept)
 
-        serialiseCalc2Results(dts, viewerData)
+        serializeCalc2Results(self, dts)
 
         self.viewerData["prefixes"] = self.nsmap.prefixmap
         self.viewerData["roles"] = self.roleMap.prefixmap

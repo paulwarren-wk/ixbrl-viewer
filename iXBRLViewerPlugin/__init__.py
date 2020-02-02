@@ -14,7 +14,6 @@
 
 from .iXBRLViewer import IXBRLViewerBuilder
 
-
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
                       action="store",

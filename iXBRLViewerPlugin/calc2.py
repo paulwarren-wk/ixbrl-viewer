@@ -14,8 +14,18 @@
 
 inferredFactId = 0
 
-def createInferredFact(builder, dts, viewerData, dp, inferredValue):
-    fid = builder.nextFactId()
+def createInferredFact(builder, dp, inferredValue):
+    fact = {
+        "c": builder.nsmap.qname(dp.concept),
+        "p": dp.period,
+        "u": builder.nsmap.qname(dp.unit),
+        "e": dp.entity,
+    }
+    for dim in dp.taxonomyDefinedDimensions:
+        if dp.dimensionValue(dim) is not None:
+            fact[builder.nsmap.qname(dim)] = builder.nsmap.qname(dp.dimensionValue(dim))
+
+    return fact
 
 
 def serializeCalc2Results(builder, dts):
@@ -24,20 +34,22 @@ def serializeCalc2Results(builder, dts):
     if calcs is None:
         return
 
-    from calc2 import FactBasedDataPointValue, InferredDataPointValue
+    from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
 
     dpi = 0
     calcData = {}
-    for dp, dpv in calcs.dataPoints().items():
+    for dp in calcs.known:
         d = { "v": [] }
-        for v in dpv.values():
+        for v in calcs.values(dp):
             if type(v) == FactBasedDataPointValue:
-                d[v].append(v.fact.id)
+                d["v"].append(v.fact.id)
             else:
-                pass
+                ifid = builder.nextFactId()
+                d["v"].append(ifid)
+                builder.viewerData["facts"][ifid] = createInferredFact(builder, dp, v)
 
-        if dpv.inconsistent:
-            dpv[i] = True
+        if not calcs.isConsistent(dp):
+            d["i"] = True
 
         calcData[dpi] = d
         dpi += 1
