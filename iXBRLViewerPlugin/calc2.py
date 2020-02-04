@@ -12,21 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-inferredFactId = 0
+inferredFactIds = dict()
 
-def createInferredFact(builder, dp, inferredValue):
+def createInferredFact(builder, calcs, dp, inferredValue):
     fact = {
-        "c": builder.nsmap.qname(dp.concept),
-        "p": dp.period,
-        "u": builder.nsmap.qname(dp.unit),
-        "e": dp.entity,
+        "a": {
+            "c": builder.nsmap.qname(dp.concept),
+            "p": dp.period,
+            "u": builder.nsmap.qname(dp.unit),
+            "e": dp.entity,
+        }
     }
     for dim in dp.taxonomyDefinedDimensions:
         if dp.dimensionValue(dim) is not None:
-            fact[builder.nsmap.qname(dim)] = builder.nsmap.qname(dp.dimensionValue(dim))
+            fact["a"][builder.nsmap.qname(dim)] = builder.nsmap.qname(dp.dimensionValue(dim))
+
+    fact["calc"] = []
+    for c, w in inferredValue.relationship.contributingDataPoints(dp):
+        if calcs.getValue(c) is not None:
+            fact["calc"].append({ "f": idForDataPointValue(builder, c, calcs.getValue(c)), "w": w })
 
     return fact
 
+def idForDataPointValue(builder, dp, v):
+    from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
+    if type(v) == FactBasedDataPointValue:
+        return v.fact.id 
+    else:
+        ifid = inferredFactIds.get(dp, {}).get(v.relationship, None)
+        if ifid is None:
+            ifid = builder.nextFactId()
+            inferredFactIds.setdefault(dp, {})[v.relationship] = ifid
+        return ifid
 
 def serializeCalc2Results(builder, dts):
 
@@ -41,12 +58,10 @@ def serializeCalc2Results(builder, dts):
     for dp in calcs.known:
         d = { "v": [] }
         for v in calcs.values(dp):
-            if type(v) == FactBasedDataPointValue:
-                d["v"].append(v.fact.id)
-            else:
-                ifid = builder.nextFactId()
-                d["v"].append(ifid)
-                builder.viewerData["facts"][ifid] = createInferredFact(builder, dp, v)
+            fid = idForDataPointValue(builder, dp, v)
+            d["v"].append(fid)
+            if type(v) == CalculatedDataPointValue:
+                builder.viewerData["facts"][fid] = createInferredFact(builder, calcs, dp, v)
 
         if not calcs.isConsistent(dp):
             d["i"] = True

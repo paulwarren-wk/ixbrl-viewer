@@ -227,3 +227,11 @@ iXBRLReport.prototype.documentSetFiles = function() {
 iXBRLReport.prototype.isDocumentSet = function() {
     return this.data.docSetFiles !== undefined;
 }
+
+iXBRLReport.prototype.hasCalc2 = function() {
+    return this.data.calc2data !== undefined;
+}
+
+iXBRLReport.prototype.calc2DataPoints = function() {
+    return this.data.calc2data;
+}

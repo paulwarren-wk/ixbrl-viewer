@@ -24,6 +24,7 @@ import { Accordian } from './accordian.js';
 import { FactSet } from './factset.js';
 import { Fact } from './fact.js';
 import { Footnote } from './footnote.js';
+import { Calc2 } from './calc2.js';
 
 export function Inspector(iv) {
     /* Insert HTML and CSS styles into body */
@@ -62,20 +63,23 @@ export function Inspector(iv) {
 }
 
 Inspector.prototype.initialize = function (report) {
-    var inspector = this;
-    return new Promise(function (resolve, reject) {
-        inspector._report = report;
-        report.setViewerOptions(inspector._viewerOptions);
-        inspector._iv.setProgress("Building search index").then(() => {
-            inspector._search = new ReportSearch(report);
-            inspector.buildDisplayOptionsMenu();
+    return new Promise((resolve, reject) => {
+        this._report = report;
+        report.setViewerOptions(this._viewerOptions);
+        this._iv.setProgress("Building search index").then(() => {
+            this._search = new ReportSearch(report);
+            this.buildDisplayOptionsMenu();
+            if (report.hasCalc2()) {
+                this.calc2 = new Calc2(this, report);
+                $('#inspector #calc2').show();
+            }
             resolve();
         });
     });
 }
 
 Inspector.prototype.setViewer = function (viewer) {
-    this._viewer = viewer;
+    this.viewer = viewer;
     var inspector = this;
     viewer.onSelect.add(function (id, eltSet) { inspector.selectItem(id, eltSet) });
     viewer.onMouseEnter.add(function (id) { inspector.viewerMouseEnter(id) });
@@ -130,7 +134,7 @@ Inspector.prototype.buildDisplayOptionsMenu = function () {
 
 Inspector.prototype.highlightAllTags = function (checked) {
     var inspector = this;
-    this._viewer.highlightAllTags(checked, inspector._report.namespaceGroups());
+    this.viewer.highlightAllTags(checked, inspector._report.namespaceGroups());
 }
 
 Inspector.prototype.factListRow = function(f) {
@@ -146,8 +150,8 @@ Inspector.prototype.factListRow = function(f) {
                 e.preventDefault() 
             } 
         })
-        .mouseenter(() => this._viewer.linkedHighlightFact(f))
-        .mouseleave(() => this._viewer.clearLinkedHighlightFact(f))
+        .mouseenter(() => this.viewer.linkedHighlightFact(f))
+        .mouseleave(() => this.viewer.clearLinkedHighlightFact(f))
         .data('ivid', f.id);
     $('<div class="title"></div>')
         .text(f.getLabel("std") || f.conceptName())
@@ -166,7 +170,7 @@ Inspector.prototype.factListRow = function(f) {
 
 Inspector.prototype.search = function (s) {
     var results = this._search.search(s);
-    var viewer = this._viewer;
+    var viewer = this.viewer;
     var container = $('#inspector .search-results .results');
     $('div', container).remove();
     viewer.clearRelatedHighlighting();
@@ -197,6 +201,9 @@ Inspector.prototype.search = function (s) {
 
 Inspector.prototype.updateCalculation = function (fact, elr) {
     $('.calculations .tree').empty().append(this._calculationHTML(fact, elr));
+    if (this.calc2) {
+        $('#calc2 .calc2-content').empty().append(this.calc2.inspectorHTML(fact));
+    }
 }
 
 Inspector.prototype.updateFootnotes = function (fact) {
@@ -230,12 +237,12 @@ Inspector.prototype._calculationHTML = function (fact, elr) {
     if (!calc.hasCalculations()) {
         return "";
     }
-    var tableFacts = this._viewer.factsInSameTable(fact);
+    var tableFacts = this.viewer.factsInSameTable(fact);
     if (!elr) {
         elr = calc.bestELRForFactSet(tableFacts);
     }
     var report = this._report;
-    var viewer = this._viewer;
+    var viewer = this.viewer;
     var inspector = this;
     var a = new Accordian();
 
@@ -294,8 +301,8 @@ Inspector.prototype._footnotesHTML = function (fact) {
             .addClass("block-list-item")
             .appendTo(html)
             .text(truncateLabel(fn.textContent(), 120))
-            .mouseenter(() => this._viewer.linkedHighlightFact(fn))
-            .mouseleave(() => this._viewer.clearLinkedHighlightFact(fn))
+            .mouseenter(() => this.viewer.linkedHighlightFact(fn))
+            .mouseleave(() => this.viewer.clearLinkedHighlightFact(fn))
             .click(() => this.selectItem(fn.id));
     });
     return html;
@@ -334,7 +341,7 @@ Inspector.prototype.describeChange = function (oldFact, newFact) {
 }
 
 Inspector.prototype.getPeriodIncrease = function (fact) {
-    var viewer = this._viewer;
+    var viewer = this.viewer;
     var inspector = this;
     if (fact.isNumeric()) {
         var otherFacts = this._report.getAlignedFacts(fact, {"p":null });
@@ -512,7 +519,7 @@ Inspector.prototype.update = function () {
                 }
             }
             $('.duplicates .text').text((n + 1) + " of " + ndup);
-            var viewer = this._viewer;
+            var viewer = this.viewer;
             $('.duplicates .prev').off().click(() => inspector.selectItem(duplicates[(n+ndup-1) % ndup].id));
             $('.duplicates .next').off().click(() => inspector.selectItem(duplicates[(n+1) % ndup].id));
 
@@ -561,8 +568,8 @@ Inspector.prototype.selectItem = function (id, itemIdList) {
  */
 Inspector.prototype.switchItem = function (id) {
     this._currentItem = this._report.getItemById(id);
-    this._viewer.showItemById(id);
-    this._viewer.highlightItem(id);
+    this.viewer.showItemById(id);
+    this.viewer.highlightItem(id);
     this.update();
 }
 
