@@ -21,7 +21,10 @@ def createInferredFact(builder, calcs, dp, inferredValue):
             "p": dp.period,
             "u": builder.nsmap.qname(dp.unit),
             "e": dp.entity,
-        }
+        },
+        "v": str(inferredValue.value.midpoint),
+        "vmin": str(inferredValue.value.a),
+        "vmax": str(inferredValue.value.b)
     }
     for dim in dp.taxonomyDefinedDimensions:
         if dp.dimensionValue(dim) is not None:

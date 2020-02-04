@@ -67,6 +67,14 @@ function localName(e) {
     }
 }
 
+Viewer.prototype._getIXNode = function(id) {
+    var ixn = this._ixNodeMap[id];
+    if (!ixn) {
+        ixn = new IXNode(id);
+    }
+    return ixn;
+}
+
 Viewer.prototype._buildContinuationMap = function() {
     var continuations = Object.keys(this._continuedAtMap)
     for (var i = 0; i < continuations.length; i++) {
@@ -317,29 +325,29 @@ Viewer.prototype.elementForFact = function (fact) {
 }
 
 Viewer.prototype.elementForItemId = function (factId) {
-    return this._ixNodeMap[factId].wrapperNode;
+    return this._getIXNode(factId).wrapperNode;
 }
 
 Viewer.prototype.elementsForItemIds = function (ids) {
-    var viewer = this;
-    return $($.map(ids, function (id, n) {
-        return viewer._ixNodeMap[id].wrapperNode.get();
+    return $($.map(ids, (id, n) => {
+        var wn = this._getIXNode(id).wrapperNode;
+        return wn ? wn.get() : [];
     }));
 }
 
 Viewer.prototype.elementsForFacts = function (facts) {
-    return this.elementsForItemIds($.map(facts, function (f) { return f.id }));
+    return this.elementsForItemIds($.map(facts, (f) => f.id ));
 }
 
 Viewer.prototype.highlightItem = function(factId) {
-    var continuations = this._ixNodeMap[factId].continuationIds();
+    var continuations = this._getIXNode(factId).continuationIds();
     this.highlightElements(this.elementsForItemIds([factId].concat(continuations)));
 }
 
 Viewer.prototype.showItemById = function (id) {
     let elt = this.elementForItemId(id);
-    this.showDocumentForItemId(id);
     if (elt) {
+        this.showDocumentForItemId(id);
         this.showElement(elt);
     }
 }
@@ -354,7 +362,7 @@ Viewer.prototype.highlightAllTags = function (on, namespaceGroups) {
     if (on) {
         $(".ixbrl-element:not(.ixbrl-continuation)", this._contents).each(function () {
             var factId = $(this).data('ivid');
-            var ixn = viewer._ixNodeMap[factId];
+            var ixn = viewer._getIXNode(factId);
             var elements = viewer.elementsForItemIds([factId].concat(ixn.continuationIds()));
             elements.addClass("ixbrl-highlight");
 
@@ -395,9 +403,11 @@ Viewer.prototype.zoomOut = function () {
 Viewer.prototype.factsInSameTable = function (fact) {
     var e = this.elementForFact(fact);
     var facts = [];
-    e.closest("table").find(".ixbrl-element").each(function (i,e) {
-        facts.push($(this).data('ivid'));
-    });
+    if (e) {
+        e.closest("table").find(".ixbrl-element").each(function (i,e) {
+            facts.push($(this).data('ivid'));
+        });
+    }
     return facts;
 }
 
@@ -416,7 +426,7 @@ Viewer.prototype._setTitle = function (docIndex) {
 }
 
 Viewer.prototype.showDocumentForItemId = function(factId) {
-    this.selectDocument(this._ixNodeMap[factId].docIndex);
+    this.selectDocument(this._getIXNode(factId).docIndex);
 }
 
 Viewer.prototype.selectDocument = function (docIndex) {

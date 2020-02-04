@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { Fact } from "./fact.js"
+import { InferredFact } from "./inferredfact.js"
 import { Footnote } from "./footnote.js"
 import { QName } from "./qname.js"
 import { Concept } from "./concept.js";
@@ -46,7 +47,13 @@ iXBRLReport.prototype._initialize = function () {
     // Create footnote objects for all footnotes, and associate facts with
     // those footnotes to allow 2 way fact <-> footnote navigation.
     for (var id in this.data.facts) {
-        var f = new Fact(this, id);
+        var f;
+        if (this.data.facts[id].calc) {
+            f = new InferredFact(this, id);
+        }
+        else {
+            f = new Fact(this, id);
+        }
         this._items[id] = f;
         var fns = this.data.facts[id].fn || [];
         fns.forEach((fnid) => {

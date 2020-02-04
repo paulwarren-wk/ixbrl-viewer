@@ -16,6 +16,7 @@ import $ from 'jquery';
 import { FactSet } from './factset.js';
 
 export function Calc2(inspector, report) {
+    this._inspector = inspector;
     this._report = report;
 }
 
@@ -41,18 +42,23 @@ Calc2.prototype.inspectorHTML = function(fact) {
         if (dataPoints[dp].i) {
             $("<div></div>").text("inconsistent").appendTo(html);
         }
-        for (var f of dataPoints[dp].v) {
-            if (f == fact.id) {
-                continue;
-            }
-            $("<div></div>").text(f).appendTo(html);
-            var dpf = this._report.getItemById(f);
+        for (const fid of dataPoints[dp].v) {
+            var dpf = this._report.getItemById(fid);
+            $("<div></div>")
+                .text(dpf.numericValueWithBounds())
+                .click(() => this._inspector.selectItem(fid))
+                .addClass("fact-link")
+                .addClass("item")
+                .appendTo(html);
             if (dpf.f.calc) {
                 var list = $("<ul></ul>").appendTo(html);
                 var contributingFacts = $.map(dpf.f.calc, (c, i) => this._report.getItemById(c["f"]));
                 var factSet = new FactSet(contributingFacts);
-                for (var ci of dpf.f.calc) {
-                    list.append($("<li></li>").text(factSet.minimallyUniqueLabel(this._report.getItemById(ci["f"]) )));
+                for (const ci of dpf.f.calc) {
+                    $("<li></li>")
+                        .text(factSet.minimallyUniqueLabel(this._report.getItemById(ci["f"]) ))
+                        .click(() => this._inspector.selectItem(ci["f"]))
+                        .appendTo(list);
                 }
             }
         }

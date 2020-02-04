@@ -68,6 +68,25 @@ Fact.prototype.value = function() {
     return this.f.v;
 }
 
+Fact.prototype.range = function() {
+    if (this.decimals() !== undefined) {
+        return 10**(0-this.decimals())
+    }
+    return 0;
+}
+
+Fact.prototype.numericValueWithBounds = function() {
+    if (!this.isNumeric()) {
+        return "";
+    }
+    var v = this.f.v;
+    var r = this.range();
+    if (r) { 
+        v += " +/-" + r/2;
+    }
+    return v;
+}
+
 Fact.prototype.readableValue = function() {
     var v = this.f.v;
     if (this.isNumeric()) {
