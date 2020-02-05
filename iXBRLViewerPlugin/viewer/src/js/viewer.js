@@ -325,7 +325,9 @@ Viewer.prototype.elementForFact = function (fact) {
 }
 
 Viewer.prototype.elementForItemId = function (factId) {
-    return this._getIXNode(factId).wrapperNode;
+    // wrapperNode will be null for unlinked hidden facts and inferred fact
+    // values.
+    return this._getIXNode(factId).wrapperNode || $();
 }
 
 Viewer.prototype.elementsForItemIds = function (ids) {
@@ -346,7 +348,7 @@ Viewer.prototype.highlightItem = function(factId) {
 
 Viewer.prototype.showItemById = function (id) {
     let elt = this.elementForItemId(id);
-    if (elt) {
+    if (elt.length) {
         this.showDocumentForItemId(id);
         this.showElement(elt);
     }
