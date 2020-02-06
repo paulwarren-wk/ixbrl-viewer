@@ -23,7 +23,7 @@ import pycountry
 from arelle.ValidateXbrlCalcs import inferredDecimals
 from arelle.ModelRelationshipSet import ModelRelationshipSet
 from .xhtmlserialize import XHTMLSerializer
-from .calc2 import serializeCalc2Results
+from .calc2 import Calc2Serializer
 import os
 
 class NamespaceMap:
@@ -255,8 +255,9 @@ class IXBRLViewerBuilder:
 
             self.viewerData["facts"][f.id] = factData
             self.addConcept(f.concept)
-
-        serializeCalc2Results(self, dts)
+    
+        c2s = Calc2Serializer(self, dts)
+        c2s.serializeCalc2Results()
 
         self.viewerData["prefixes"] = self.nsmap.prefixmap
         self.viewerData["roles"] = self.roleMap.prefixmap

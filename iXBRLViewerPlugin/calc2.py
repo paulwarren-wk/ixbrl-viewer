@@ -12,66 +12,87 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-inferredFactIds = dict()
+class Calc2Serializer:
 
-def createInferredFact(builder, calcs, dp, inferredValue):
-    fact = {
-        "a": {
-            "c": builder.nsmap.qname(dp.concept),
-            "p": dp.period,
-            "u": builder.nsmap.qname(dp.unit),
-            "e": dp.entity,
-        },
-        "v": str(inferredValue.value.midpoint),
-        "vmin": str(inferredValue.value.a),
-        "vmax": str(inferredValue.value.b)
-    }
-    for dim in dp.taxonomyDefinedDimensions:
-        if dp.dimensionValue(dim) is not None:
-            fact["a"][builder.nsmap.qname(dim)] = builder.nsmap.qname(dp.dimensionValue(dim))
+    def __init__(self, builder, dts):
+        self.inferredFactIds = dict()
+        self.builder = builder
+        self.dts = dts
+        self.dataPoints = getattr(dts, "calc2Results", None)
+        self.relationshipToId = dict()
+        self.calcId = 0
+        self.relationships = dict()
 
-    fact["calc"] = []
-    for c, w in inferredValue.relationship.contributingDataPoints(dp):
-        if calcs.getValue(c) is not None:
-            fact["calc"].append({ "f": idForDataPointValue(builder, c, calcs.getValue(c)), "w": w })
+    def serializeRelationship(self, rel):
+        from calc2.calc2model import ConceptSummationRelationship, DimensionAggregationRelationship
+        if type(rel) == ConceptSummationRelationship:
+            res = {
+                "type": "concept",
+                "items": [{ "n": self.builder.nsmap.qname(i["concept"]), "w": i["weight"] } for i in rel.items ],
+                "total": self.builder.nsmap.qname(rel.total),
+            }
+        elif type(rel) == DimensionAggregationRelationship:
+            res = {
+                "type": "dimagg",
+                "items": [{ "n": self.builder.nsmap.qname(i), "w": 1 } for i in rel.items],
+                "total": self.builder.nsmap.qname(rel.total) if rel.total is not None else 'default',
+                "dimension": self.builder.nsmap.qname(rel.dimension),
+            }
 
-    return fact
+        return res
 
-def idForDataPointValue(builder, dp, v):
-    from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
-    if type(v) == FactBasedDataPointValue:
-        return v.fact.id 
-    else:
-        ifid = inferredFactIds.get(dp, {}).get(v.relationship, None)
-        if ifid is None:
-            ifid = builder.nextFactId()
-            inferredFactIds.setdefault(dp, {})[v.relationship] = ifid
-        return ifid
+    def createInferredFact(self, dp, inferredValue):
+        fact = {
+            "a": {
+                "c": self.builder.nsmap.qname(dp.concept),
+                "p": dp.period,
+                "u": self.builder.nsmap.qname(dp.unit),
+                "e": dp.entity,
+            },
+            "v": str(inferredValue.value.midpoint),
+            "vmin": str(inferredValue.value.a),
+            "vmax": str(inferredValue.value.b)
+        }
+        for dim in dp.taxonomyDefinedDimensions:
+            if dp.dimensionValue(dim) is not None:
+                fact["a"][self.builder.nsmap.qname(dim)] = self.builder.nsmap.qname(dp.dimensionValue(dim))
 
-def serializeCalc2Results(builder, dts):
+        calcId = self.relationshipToId.get(inferredValue.relationship, None)
+        if calcId is None:
+            self.calcId += 1
+            calcId = 'c%d' % self.calcId
+            self.relationshipToId[inferredValue.relationship] = calcId
+            self.relationships[calcId] = self.serializeRelationship(inferredValue.relationship)
 
-    calcs = getattr(dts, "calc2Results", None)
-    if calcs is None:
-        return
+        fact['calc'] = calcId
 
-    from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
+        return fact
 
-    dpi = 0
-    calcData = {}
-    for dp in calcs.known:
-        d = { "v": [] }
-        for v in calcs.values(dp):
-            fid = idForDataPointValue(builder, dp, v)
-            d["v"].append(fid)
-            if type(v) == CalculatedDataPointValue:
-                builder.viewerData["facts"][fid] = createInferredFact(builder, calcs, dp, v)
+    def idForDataPointValue(self, dp, v):
+        from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
+        if type(v) == FactBasedDataPointValue:
+            return v.fact.id 
+        else:
+            ifid = self.inferredFactIds.get(dp, {}).get(v.relationship, None)
+            if ifid is None:
+                ifid = self.builder.nextFactId()
+                self.inferredFactIds.setdefault(dp, {})[v.relationship] = ifid
+            return ifid
 
-        if not calcs.isConsistent(dp):
-            d["i"] = True
+    def serializeCalc2Results(self):
+        if self.dataPoints is None:
+            return
 
-        calcData[dpi] = d
-        dpi += 1
+        from calc2.datapoints import FactBasedDataPointValue, CalculatedDataPointValue
 
-    builder.viewerData["calc2data"] = calcData
+        dpi = 0
+        calcData = {}
+        for dp in self.dataPoints.known:
+            for v in self.dataPoints.values(dp):
+                fid = self.idForDataPointValue(dp, v)
+                if type(v) == CalculatedDataPointValue:
+                    self.builder.viewerData["facts"][fid] = self.createInferredFact(dp, v)
+
+        self.builder.viewerData["calc2rels"] = self.relationships
         
 
