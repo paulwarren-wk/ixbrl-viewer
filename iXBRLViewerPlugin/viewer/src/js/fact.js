@@ -79,10 +79,10 @@ Fact.prototype.numericValueWithBounds = function() {
     if (!this.isNumeric()) {
         return "";
     }
-    var v = this.f.v;
+    var v = formatNumber(this.f.v,0);
     var r = this.range();
     if (r) { 
-        v += " +/-" + r/2;
+        v += " +/-" + formatNumber(r/2,0);
     }
     return v;
 }

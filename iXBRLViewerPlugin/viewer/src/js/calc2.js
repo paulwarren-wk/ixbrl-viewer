@@ -58,6 +58,7 @@ Calc2.prototype.inspectorHTML = function(fact) {
                     $("<li></li>")
                         .text(factSet.minimallyUniqueLabel(this._report.getItemById(ci["f"]) ))
                         .click(() => this._inspector.selectItem(ci["f"]))
+                        .addClass("fact-link")
                         .appendTo(list);
                 }
             }
