@@ -15,9 +15,9 @@
 from arelle.LocalViewer import LocalViewer
 from arelle.webserver.bottle import static_file
 from arelle.FileSource import archiveFilenameParts
-import os
+import os, shutil
 import logging
-import os, zipfile, sys, traceback
+import zipfile, sys, traceback
 
 from .iXBRLViewer import IXBRLViewerBuilder
 
@@ -57,11 +57,16 @@ def launchLocalViewer(cntlr, modelXbrl):
             outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
         else: 
             outDir = modelXbrl.modelDocument.filepathdir
-        out = modelXbrl.modelDocument.basename + VIEWER_SUFFIX
-        iv.save(os.path.join(outDir, out))
+        # for IXDS, outPath must be a directory name, suffix is applied in saving files
+        if len(iv.files) > 1:
+            iv.save(outDir, outSuffix=VIEWER_SUFFIX)
+            htmlFile = iv.files[0].filename
+        else:
+            iv.save(os.path.join(outDir, modelXbrl.modelDocument.basename + VIEWER_SUFFIX))
+            htmlFile = modelXbrl.modelDocument.basename
         _localhost = localViewer.init(cntlr, outDir)
         import webbrowser
-        webbrowser.open(url="{}/{}".format(_localhost, modelXbrl.modelDocument.basename))
+        webbrowser.open(url="{}/{}".format(_localhost, htmlFile))#
     except Exception as ex:
         modelXbrl.error("viewer:exception",
                         "Exception %(exception)s \sTraceback %(traceback)s",
