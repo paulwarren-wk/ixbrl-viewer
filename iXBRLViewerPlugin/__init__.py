@@ -33,7 +33,7 @@
 #
 
 from .iXBRLViewer import IXBRLViewerBuilder
-from .localviewer import launchLocalViewer
+from .localviewer import launchLocalViewer, VIEWER_SUFFIX
 
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
@@ -57,7 +57,7 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
         if out:
             viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
             iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL)
-            iv.save(out)
+            iv.save(out, outSuffix=VIEWER_SUFFIX)
     except Exception as ex:
         cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))
 
