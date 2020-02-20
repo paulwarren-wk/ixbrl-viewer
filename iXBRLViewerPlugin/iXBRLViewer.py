@@ -316,7 +316,7 @@ class iXBRLViewer:
     def addFile(self, ivf):
         self.files.append(ivf)
 
-    def save(self, outPath):
+    def save(self, outPath, outSuffix=""):
         """
         Save the iXBRL viewer
         """
@@ -332,7 +332,7 @@ class iXBRLViewer:
             # If output is a directory, write each file in the doc set to that
             # directory using its existing filename
             for f in self.files:
-                filename = os.path.join(outPath, f.filename)
+                filename = os.path.join(outPath, f.filename + outSuffix)
                 self.dts.info("viewer:info", "Writing %s" % filename)
                 with open(filename, "wb") as fout:
                     writer = XHTMLSerializer()
