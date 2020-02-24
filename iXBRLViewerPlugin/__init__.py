@@ -11,9 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# GUI operation:
+#
+#     if submenu View->iXBRL Viewer->Show iXBRL Filing Data is checkmarked, a local viewer is automatically opened to view
+#
+#     to save a viewable file Tools->Save iXBRL Viewer Instance (dialog requests linkable js location and save location)
+#
+# Command line operation:
+#
+#     parameters --save-viewer (file system location to save at) and --viewer-url (linkable js location)
+#
+# Web Server operation:
+#
+#     example uploading an ESEF report package and receiving a zip of viewable .xhtml and viewer javascript file:
+#
+#         curl -X POST "-HContent-type: application/zip" 
+#              -T /Users/mystuff/ESMA/samples/bzwbk_2016.zip 
+#              -o ~/temp/out.zip 
+#              "http://localhost:8080/rest/xbrl/validation?&media=zip&plugins=iXBRLViewerPlugin&packages=somewhere/esef_taxonomy_2017.zip"
+#
 
 from .iXBRLViewer import IXBRLViewerBuilder
-from .localviewer import launchLocalViewer
+from .localviewer import launchLocalViewer, VIEWER_SUFFIX
 
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
@@ -32,11 +52,14 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
     if cntlr.modelManager is None or cntlr.modelManager.modelXbrl is None:
         cntlr.addToLog("No taxonomy loaded.")
         return
-    out = getattr(options, 'saveViewerFile', False)
-    if out:
-        viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
-        iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL)
-        iv.save(out)
+    try:
+        out = getattr(options, 'saveViewerFile') or kwargs.get("responseZipStream")
+        if out:
+            viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.modelXbrl)
+            iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL)
+            iv.save(out, outSuffix=VIEWER_SUFFIX)
+    except Exception as ex:
+        cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))
 
 
 def iXBRLViewerMenuCommand(cntlr):

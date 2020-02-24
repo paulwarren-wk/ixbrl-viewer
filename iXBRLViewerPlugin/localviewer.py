@@ -1,9 +1,23 @@
+# Copyright 2019 Workiva Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from arelle.LocalViewer import LocalViewer
 from arelle.webserver.bottle import static_file
 from arelle.FileSource import archiveFilenameParts
-import os
+import os, shutil
 import logging
-import os, zipfile, sys, traceback
+import zipfile, sys, traceback
 
 from .iXBRLViewer import IXBRLViewerBuilder
 
@@ -11,7 +25,7 @@ VIEWER_SUFFIX = ".ixbrlview"
 
 class iXBRLViewerLocalViewer(LocalViewer):
     # plugin-specific local file handler
-    def getLocalFile(self, file=None, relpath=None):
+    def getLocalFile(self, file, relpath, request):
         _report, _sep, _file = file.partition("/")
         if file == 'ixbrlviewer.js':
             return static_file('ixbrlviewer.js', os.path.abspath(os.path.join(os.path.dirname(__file__), "viewer", "dist")))
@@ -27,11 +41,7 @@ class iXBRLViewerLocalViewer(LocalViewer):
 
             if not _fileExists:
                 self.cntlr.addToLog("http://localhost:{}/{}".format(self.port,file), messageCode="localViewer:fileNotFound",level=logging.DEBUG)
-            return static_file(_file, root=_fileDir,
-                               # extra_headers modification to py-bottle
-                               more_headers={'Cache-Control': 'no-cache, no-store, must-revalidate',
-                                             'Pragma': 'no-cache',
-                                             'Expires': '0'})
+            return static_file(_file, root=_fileDir, more_headers=self.noCacheHeaders) # extra_headers modification to py-bottle
         return static_file(file, root="/") # probably can't get here unless path is wrong
 
 localViewer = iXBRLViewerLocalViewer("iXBRL Viewer",  os.path.dirname(__file__))
@@ -47,11 +57,16 @@ def launchLocalViewer(cntlr, modelXbrl):
             outDir = os.path.dirname(_archiveFilenameParts[0]) # it's a zip or package
         else: 
             outDir = modelXbrl.modelDocument.filepathdir
-        out = modelXbrl.modelDocument.basename + VIEWER_SUFFIX
-        iv.save(os.path.join(outDir, out))
+        # for IXDS, outPath must be a directory name, suffix is applied in saving files
+        if len(iv.files) > 1:
+            iv.save(outDir, outSuffix=VIEWER_SUFFIX)
+            htmlFile = iv.files[0].filename
+        else:
+            iv.save(os.path.join(outDir, modelXbrl.modelDocument.basename + VIEWER_SUFFIX))
+            htmlFile = modelXbrl.modelDocument.basename
         _localhost = localViewer.init(cntlr, outDir)
         import webbrowser
-        webbrowser.open(url="{}/{}".format(_localhost, modelXbrl.modelDocument.basename))
+        webbrowser.open(url="{}/{}".format(_localhost, htmlFile))#
     except Exception as ex:
         modelXbrl.error("viewer:exception",
                         "Exception %(exception)s \sTraceback %(traceback)s",
