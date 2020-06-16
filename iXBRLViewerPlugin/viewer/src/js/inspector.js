@@ -430,12 +430,16 @@ Inspector.prototype.getPeriodIncrease = function (fact) {
     if (fact.isNumeric()) {
         var otherFacts = this._report.getAlignedFacts(fact, {"p":null });
         var mostRecent;
-        if (fact.periodTo()) {
-            $.each(otherFacts, function (i, of) {
-                if (of.periodTo() && of.periodTo() < fact.periodTo() && (!mostRecent || of.periodTo() > mostRecent.periodTo()) && fact.isEquivalentDuration(of)) {
-                    mostRecent = of;
+        var mostRecentPeriodTo;
+        const periodTo = fact.periodTo();
+        if (periodTo) {
+            for (const other of otherFacts) {
+                const otherPeriodTo = other.periodTo();
+                if (otherPeriodTo && otherPeriodTo < periodTo && (!mostRecent || otherPeriodTo > mostRecentPeriodTo) && fact.isEquivalentDuration(other)) {
+                    mostRecent = other;
+                    mostRecentPeriodTo = mostRecent.periodTo();
                 }
-            });
+            }
         }
         var s = "";
         if (mostRecent) {
