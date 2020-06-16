@@ -301,22 +301,22 @@ Inspector.prototype.updateAnchoring = function (fact) {
 Inspector.prototype._referencesHTML = function (fact) {
     var c = fact.concept();
     var a = new Accordian();
-    $.each(fact.concept().references(), function (i,r) {
+    for (const [i, r] of fact.concept().references().entries()) {
         var title = $("<span></span>").text(r[0].value);
-        var body =  $('<table class="fact-properties"><tbody></tbody></table>')
-        var tbody = body.find("tbody");
-        $.each(r, function (j,p) {
+        var body =  $('<table></table>', {"class":"fact-properties"});
+        var tbody = $('<tbody></tbody>').appendTo(body);
+        $.each(r, function (j, p) {
             var row = $("<tr>")
                 .append($("<th></th>").text(p.part))
                 .append($("<td></td>").text(p.value))
                 .appendTo(tbody);
             if (p.part == 'URI') {
                 row.addClass("uri");
-                row.find("td").wrapInner($("<a>").attr("href",p.value));
+                row.find("td").wrapInner($("<a></a>", {"href": p.value}));
             }
         });
         a.addCard(title, body, i == 0);
-    });
+    }
     return a.contents();
 }
 

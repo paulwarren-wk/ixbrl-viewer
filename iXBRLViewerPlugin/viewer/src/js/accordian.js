@@ -25,8 +25,8 @@ export function Accordian(options) {
 
 Accordian.prototype.addCard = function(title, body, selected, data) {
     var a = this;
-    var card = $('<div class="card"></div>')
-        .append($('<div class="title"></div>')
+    var card = $('<div></div>', {"class": "card"})
+        .append($('<div></div>', {"class": "title"})
             .append(title)
             .click(function () {
                 var thisCard = $(this).closest(".card");
@@ -42,7 +42,7 @@ Accordian.prototype.addCard = function(title, body, selected, data) {
                 }
             })
         )
-        .append($('<div class="body"></div>').append(body))
+        .append($('<div></div>', {"class": "body"}).append(body))
         .appendTo(this._contents);
 
     if (data !== null) {
