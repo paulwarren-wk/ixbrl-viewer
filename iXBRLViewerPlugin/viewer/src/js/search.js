@@ -65,9 +65,9 @@ ReportSearch.prototype.buildSearchIndex = function () {
       this.field('widerDoc');
       this.field('widerConcept');
 
-      docs.forEach(function (doc) {
+      for (const doc of docs) { 
         this.add(doc);
-      }, this)
+      }
     })
 }
 
