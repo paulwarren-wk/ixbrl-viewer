@@ -286,7 +286,7 @@ Viewer.prototype.showAndSelectElement = function(e) {
 }
 
 Viewer.prototype.clearHighlighting = function () {
-    $("body", this._iframes.contents()).find(".ixbrl-element").removeClass("ixbrl-selected").removeClass("ixbrl-related").removeClass("ixbrl-linked-highlight");
+    $("body", this._iframes.contents()).find(".ixbrl-element").removeClass(["ixbrl-selected", "ixbrl-related", "ixbrl-linked-highlight"]);
 }
 
 /*
