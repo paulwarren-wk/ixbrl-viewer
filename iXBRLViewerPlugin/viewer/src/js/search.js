@@ -24,28 +24,41 @@ ReportSearch.prototype.buildSearchIndex = function () {
     var docs = [];
     var dims = {};
     var facts = this._report.facts();
+    var concepts = {};
     this.periods = {};
     for (var i = 0; i < facts.length; i++) {
         var f = facts[i];
-        var doc = { "id": f.id };
+        var factDoc = { "id": "f" + f.id };
         var l = f.getLabel("std");
-        doc.concept = f.conceptQName().localname;
-        doc.doc = f.getLabel("doc");
-        doc.date = f.periodTo();
-        doc.startDate = f.periodFrom();
+        var conceptDoc = { };
+
+
+        factDoc.date = f.periodTo();
+        factDoc.startDate = f.periodFrom();
         var dims = f.dimensions();
         for (var d in dims) {
             l += " " + this._report.getLabel(dims[d],"std");
         }
-        doc.label = l;
-        doc.ref = f.concept().referenceValuesAsString();
-        const wider = f.widerConcepts();
-        if (wider.length > 0) {
-            doc.widerConcept = this._report.qname(wider[0]).localname;
-            doc.widerLabel = this._report.getLabel(wider[0],"std");
-            doc.widerDoc = this._report.getLabel(wider[0],"doc");
+        factDoc.label = l;
+        docs.push(factDoc);
+
+        var conceptDoc = concepts[f.conceptQName().qname];
+        if (conceptDoc === undefined) {
+            conceptDoc = {};
+            conceptDoc.concept = f.conceptQName().localname;
+            conceptDoc.doc = f.getLabel("doc");
+            conceptDoc.ref = f.concept().referenceValuesAsString();
+            /*
+            const wider = f.widerConcepts();
+            if (wider.length > 0) {
+                doc.widerConcept = this._report.qname(wider[0]).localname;
+                doc.widerLabel = this._report.getLabel(wider[0],"std");
+                doc.widerDoc = this._report.getLabel(wider[0],"doc");
+            }
+            */
+            concepts[f.conceptQName().qname] = conceptDoc;
+            conceptDoc.id = 'c' + f.conceptQName().qname;
         }
-        docs.push(doc);
 
         var p = f.period();
         if (p) {
@@ -68,6 +81,9 @@ ReportSearch.prototype.buildSearchIndex = function () {
       for (const doc of docs) { 
         this.add(doc);
       }
+      for (const doc of Object.values(concepts)) { 
+        this.add(doc);
+      }
     })
 }
 
@@ -77,7 +93,19 @@ ReportSearch.prototype.search = function (s) {
     var searchIndex = this;
 
     rr.forEach((r,i) => {
-            var item = searchIndex._report.getItemById(r.ref);
+        var items;
+        if (r.ref[0] == 'f') {
+            items = [ searchIndex._report.getItemById(r.ref.substring(1)) ];
+        }
+        else {
+            items = [];
+            for (const f of this._report.facts()) {
+                if (f.conceptName == r.ref.substring(1)) {
+                    items.push(f);
+                }
+            }
+        }
+        for (const item of items) {
             if (
                 (item.isHidden() ? s.showHiddenFacts : s.showVisibleFacts) &&
                 (s.periodFilter == '*' || item.period().key() == s.periodFilter) &&
@@ -88,6 +116,6 @@ ReportSearch.prototype.search = function (s) {
                 });
             }
         }
-    );
+    });
     return results;
 }
