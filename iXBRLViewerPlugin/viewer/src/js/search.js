@@ -14,6 +14,7 @@
 
 import lunr from 'lunr'
 import $ from 'jquery'
+import { setDefault } from './util.js';
 
 export function ReportSearch (report) {
     this._report = report;
@@ -21,43 +22,42 @@ export function ReportSearch (report) {
 }
 
 ReportSearch.prototype.buildSearchIndex = function () {
-    var docs = [];
+    var docs = {};
     var dims = {};
     var facts = this._report.facts();
-    var concepts = {};
     this.periods = {};
     for (var i = 0; i < facts.length; i++) {
         var f = facts[i];
         var factDoc = { "id": "f" + f.id };
-        var l = f.getLabel("std");
-        var conceptDoc = { };
-
-
         factDoc.date = f.periodTo();
         factDoc.startDate = f.periodFrom();
-        var dims = f.dimensions();
-        for (var d in dims) {
-            l += " " + this._report.getLabel(dims[d],"std");
-        }
-        factDoc.label = l;
-        docs.push(factDoc);
+        docs[ factDoc.id ] = factDoc;
 
-        var conceptDoc = concepts[f.conceptQName().qname];
-        if (conceptDoc === undefined) {
-            conceptDoc = {};
+        for (const [dname, dvalue] of Object.entries(f.dimensions())) {
+            const key = 'd' + dname + '/' + dvalue
+            if (!(key in docs)) {
+                docs[key] = {
+                    "id": key,
+                    "label": this._report.getLabel(dvalue, "std")
+                }
+            }
+        }
+
+        var ckey = 'c' + f.conceptName();
+        if (!(ckey in docs)) {
+            var conceptDoc = {};
+            conceptDoc.label = f.getLabel("std");
             conceptDoc.concept = f.conceptQName().localname;
             conceptDoc.doc = f.getLabel("doc");
             conceptDoc.ref = f.concept().referenceValuesAsString();
-            /*
+            conceptDoc.id = ckey;
             const wider = f.widerConcepts();
             if (wider.length > 0) {
-                doc.widerConcept = this._report.qname(wider[0]).localname;
-                doc.widerLabel = this._report.getLabel(wider[0],"std");
-                doc.widerDoc = this._report.getLabel(wider[0],"doc");
+                conceptDoc.widerConcept = this._report.qname(wider[0]).localname;
+                conceptDoc.widerLabel = this._report.getLabel(wider[0],"std");
+                conceptDoc.widerDoc = this._report.getLabel(wider[0],"doc");
             }
-            */
-            concepts[f.conceptQName().qname] = conceptDoc;
-            conceptDoc.id = 'c' + f.conceptQName().qname;
+            docs[ckey] = conceptDoc;
         }
 
         var p = f.period();
@@ -78,10 +78,7 @@ ReportSearch.prototype.buildSearchIndex = function () {
       this.field('widerDoc');
       this.field('widerConcept');
 
-      for (const doc of docs) { 
-        this.add(doc);
-      }
-      for (const doc of Object.values(concepts)) { 
+      for (const doc of Object.values(docs)) { 
         this.add(doc);
       }
     })
@@ -92,30 +89,31 @@ ReportSearch.prototype.search = function (s) {
     var results = []
     var searchIndex = this;
 
+    var resultMap = {};
+
     rr.forEach((r,i) => {
         var items;
-        if (r.ref[0] == 'f') {
-            items = [ searchIndex._report.getItemById(r.ref.substring(1)) ];
+        const resultType = r.ref[0];
+        const resultName = r.ref.substring(1);
+        if (resultType == 'f') {
+            items = [ searchIndex._report.getItemById(resultName) ];
         }
-        else {
-            items = [];
-            for (const f of this._report.facts()) {
-                if (f.conceptName == r.ref.substring(1)) {
-                    items.push(f);
-                }
-            }
+        else if (resultType == 'c') {
+            items = this._report.getFactsByConcept(resultName);
+        }
+        else if (resultType == 'd') {
+            const [dname, dvalue] = resultName.split('/');
+            items = this._report.getFactsByDimensionValue(dname, dvalue);
         }
         for (const item of items) {
             if (
                 (item.isHidden() ? s.showHiddenFacts : s.showVisibleFacts) &&
                 (s.periodFilter == '*' || item.period().key() == s.periodFilter) &&
                 (s.conceptTypeFilter == '*' || s.conceptTypeFilter == (item.isNumeric() ? 'numeric' : 'text'))) {
-                results.push({
-                    "fact": item,
-                    "score": r.score
-                });
+
+                setDefault(resultMap, item.id, { "fact": item, "score": 0}).score += r.score;
             }
         }
     });
-    return results;
+    return Object.values(resultMap).sort((a,b) => b.score - a.score);
 }

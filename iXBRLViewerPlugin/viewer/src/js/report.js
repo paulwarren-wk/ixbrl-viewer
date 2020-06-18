@@ -119,12 +119,7 @@ iXBRLReport.prototype.getIXNodeForItemId = function(id) {
 }
 
 iXBRLReport.prototype.facts = function() {
-    var allItems = [];
-    var report = this;
-    $.each(this.data.facts, function (id, f) {
-        allItems.push(report.getItemById(id));
-    });
-    return allItems;
+    return Object.values(this._items).filter((i) => i instanceof Fact);
 }
 
 iXBRLReport.prototype.prefixMap = function() {
@@ -248,4 +243,12 @@ iXBRLReport.prototype.isDocumentSet = function() {
 
 iXBRLReport.prototype.usesAnchoring = function() {
     return this.data.rels["w-n"] !== undefined;
+}
+
+iXBRLReport.prototype.getFactsByConcept = function(c) {
+    return this.facts().filter((f) => f.conceptName() == c);
+}
+
+iXBRLReport.prototype.getFactsByDimensionValue = function(name, value) {
+    return this.facts().filter((f) => name in f.dimensions() && f.dimensions()[name] == value);
 }
