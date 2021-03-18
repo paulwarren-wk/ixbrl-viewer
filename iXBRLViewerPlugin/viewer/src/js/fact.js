@@ -22,7 +22,6 @@ import $ from 'jquery'
 
 export function Fact(report, factData) {
     this.f = factData;
-    this._ixNode = report.getIXNodeForItemId(factData.id);
     this._report = report;
 }
 

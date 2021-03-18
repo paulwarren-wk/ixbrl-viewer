@@ -50,7 +50,7 @@ iXBRLReport.prototype._initialize = function () {
     // Create footnote objects for all footnotes, and associate facts with
     // those footnotes to allow 2 way fact <-> footnote navigation.
     for (var id in this.data.facts) {
-        var f = new Fact(this, id);
+        var f = new ReportFact(this, id);
         this._items[id] = f;
         var fns = this.data.facts[id].fn || [];
         fns.forEach((fnid) => {
@@ -117,7 +117,7 @@ iXBRLReport.prototype.languageNames = function() {
     return this.data.languages;
 }
 
-iXBRLReport.prototype.getFactById = function(id) {
+iXBRLReport.prototype.getItemById = function(id) {
     if (!this._items.hasOwnProperty(id)) {
         if (this.data.facts.hasOwnProperty(id)) {
             this._items[id] = new ReportFact(this, id);
@@ -126,7 +126,7 @@ iXBRLReport.prototype.getFactById = function(id) {
             this._items[id] = null;
         }
     }
-    return this.items[id];
+    return this._items[id];
 }
 
 

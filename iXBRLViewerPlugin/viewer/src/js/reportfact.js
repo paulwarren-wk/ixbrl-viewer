@@ -23,7 +23,7 @@ import { Fact } from './fact.js';
 
 export function ReportFact(report, factId) {
     Fact.call(this, report, report.data.facts[factId]);
-    this._ixNode = report.getIXNodeForFactId(factId);
+    this._ixNode = report.getIXNodeForItemId(factId);
     this.id = factId;
 }
 
