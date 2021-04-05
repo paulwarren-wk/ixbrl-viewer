@@ -52,6 +52,7 @@ class XHTMLSerializer:
             # complete string.
             with open(self.embedViewerFile, encoding="utf-8") as fin:
                 script = fin.read()
+                script = re.sub('([\x00-\x08\x0B\x0C\x0E-\x1F])', lambda m: "\\x%02x" % ord(m.group(1)), script)
                 script = script.replace('"]]>"', '"\\x5D\\x5D\\x3E"').replace(']]>', ']] >')
                 script = "// <![CDATA[\n" + script + "\n// ]]>\n"; 
             xml = xml.decode('utf-8').replace('IXBRL_VIEWER_SCRIPT_PLACEHOLDER', script).encode('utf-8')
