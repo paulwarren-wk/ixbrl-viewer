@@ -23,6 +23,9 @@ class XHTMLSerializer:
         'input', 'isindex', 'link', 'meta', 'param'
     )
 
+    def __init__(self, embedViewerFile = None):
+        self.embedViewerFile = embedViewerFile
+
     def _expandEmptyTags(self, xml):
         """
         Expand self-closing tags
@@ -38,4 +41,19 @@ class XHTMLSerializer:
 
     def serialize(self, xmlDocument, fout):
         self._expandEmptyTags(xmlDocument)
-        fout.write(etree.tostring(xmlDocument, method="xml", encoding="utf-8", xml_declaration=True))
+        xml = etree.tostring(xmlDocument, method="xml", encoding="utf-8", xml_declaration=True)
+        if self.embedViewerFile is not None:
+            # '<' in <script> must be escaped in XML, but must not be in HTML
+            # Enclose in CDATA to make the XML valid.  CDATA is ignored by
+            # HTML, so put CDATA tags in JS comments.
+            # Our script contains ']]>', so escape with escaped character in
+            # strings, and adjust to "]] >" out of strings.
+            # This will break if ]]> appears within a string but is not a
+            # complete string.
+            with open(self.embedViewerFile, encoding="utf-8") as fin:
+                script = fin.read()
+                script = script.replace('"]]>"', '"\\x5D\\x5D\\x3E"').replace(']]>', ']] >')
+                script = "// <![CDATA[\n" + script + "\n// ]]>\n"; 
+            xml = xml.decode('utf-8').replace('IXBRL_VIEWER_SCRIPT_PLACEHOLDER', script).encode('utf-8')
+        fout.write(xml)
+        

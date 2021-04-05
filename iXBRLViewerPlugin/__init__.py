@@ -53,6 +53,10 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       dest="viewerURL",
                       default="js/dist/ixbrlviewer.js",
                       help="Specify the URL to ixbrlviewer.js")
+    parser.add_option("--embed-viewer-file",
+                      action="store",
+                      dest="embedViewerFile",
+                      help="Embed specified ixbrlviewer.js into viewer file.")
 
 
 def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
@@ -68,7 +72,7 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
         out = getattr(options, 'saveViewerFile') or kwargs.get("responseZipStream")
         if out:
             viewerBuilder = IXBRLViewerBuilder(modelXbrl)
-            iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL)
+            iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL, embedViewerFile=options.embedViewerFile)
             iv.save(out, outBasenameSuffix=VIEWER_BASENAME_SUFFIX, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
     except Exception as ex:
         cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))

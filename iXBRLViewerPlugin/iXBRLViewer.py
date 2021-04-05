@@ -192,13 +192,17 @@ class IXBRLViewerBuilder:
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
 
-    def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js"):
+    def embeddedViewerElement(self, viewerFile):
+        # lxml doesn't allow us enough control over CDATA escaping, so we have to post-process this.
+        return etree.fromstring("<script type='text/javascript'>IXBRL_VIEWER_SCRIPT_PLACEHOLDER</script>")
+
+    def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js", embedViewerFile=None):
         """
         Create an iXBRL file with XBRL data as a JSON blob, and script tags added
         """
 
         dts = self.dts
-        iv = iXBRLViewer(dts)
+        iv = iXBRLViewer(dts, embedViewerFile)
         idGen = 0
         self.roleMap.getPrefix(XbrlConst.standardLabel, "std")
         self.roleMap.getPrefix(XbrlConst.documentationLabel, "doc")
@@ -297,10 +301,13 @@ class IXBRLViewerBuilder:
             if child.tag == '{http://www.w3.org/1999/xhtml}body':
                 child.append(etree.Comment("BEGIN IXBRL VIEWER EXTENSIONS"))
 
-                e = etree.fromstring("<script xmlns='http://www.w3.org/1999/xhtml' src='%s' type='text/javascript'  />" % scriptUrl)
-                # Don't self close
-                e.text = ''
-                child.append(e)
+                if embedViewerFile is not None:
+                    child.append(self.embeddedViewerElement(embedViewerFile))
+                else:
+                    e = etree.fromstring("<script xmlns='http://www.w3.org/1999/xhtml' src='%s' type='text/javascript'  />" % scriptUrl)
+                    # Don't self close
+                    e.text = ''
+                    child.append(e)
 
                 # Putting this in the header can interfere with character set
                 # auto detection
@@ -320,9 +327,10 @@ class iXBRLViewerFile:
 
 class iXBRLViewer:
 
-    def __init__(self, dts):
+    def __init__(self, dts, embedViewerFile):
         self.files = []
         self.dts = dts
+        self.embedViewerFile = embedViewerFile
 
     def addFile(self, ivf):
         self.files.append(ivf)
@@ -331,6 +339,7 @@ class iXBRLViewer:
         """
         Save the iXBRL viewer
         """
+        writer = XHTMLSerializer(self.embedViewerFile)
         if isinstance(outPath, io.BytesIO): # zip output stream
             # zipfile may be cumulatively added to by inline extraction, EdgarRenderer etc
             _outPrefix = outzipFilePrefix + ("/" if outzipFilePrefix and outzipFilePrefix[-1] not in ("/", "\\") else "")
@@ -338,7 +347,6 @@ class iXBRLViewer:
                 for f in self.files:
                     self.dts.info("viewer:info", "Saving in output zip %s" % f.filename)
                     fout = attrdict(write=lambda s: zout.writestr(_outPrefix + f.filename, s))
-                    writer = XHTMLSerializer()
                     writer.serialize(f.xmlDocument, fout)
                 zout.write(os.path.join(os.path.dirname(__file__), "viewer", "dist", "ixbrlviewer.js"), _outPrefix + "ixbrlviewer.js")
         elif os.path.isdir(outPath):
@@ -348,7 +356,6 @@ class iXBRLViewer:
                 filename = os.path.join(outPath, "{0[0]}{1}{0[1]}".format(os.path.splitext(f.filename), outBasenameSuffix))
                 self.dts.info("viewer:info", "Writing %s" % filename)
                 with open(filename, "wb") as fout:
-                    writer = XHTMLSerializer()
                     writer.serialize(f.xmlDocument, fout)
 
         else:
@@ -363,5 +370,4 @@ class iXBRLViewer:
             else:
                 self.dts.info("viewer:info", "Writing %s" % outPath)
                 with open("{0[0]}{1}{0[1]}".format(os.path.splitext(outPath), outBasenameSuffix), "wb") as fout:
-                    writer = XHTMLSerializer()
                     writer.serialize(self.files[0].xmlDocument, fout)
