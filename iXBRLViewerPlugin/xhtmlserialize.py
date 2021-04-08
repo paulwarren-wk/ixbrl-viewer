@@ -81,18 +81,15 @@ class XHTMLSerializer:
                         # regex literal
                         m = re.match(r'^(\\.|[^[\\/]|\[\^?.[^]]*\])*/', js[i:])
                         m.group(0)
-                        print("Regex literal: " + m.group(0))
                         i += len(m.group(0))
                         out += m.group(0).replace(']]>', ']]\\x3E')
 
             elif m.group(2) in ("'",'"','`'):
                 m = re.match(r'(?s)^((?:\\.|[^' + m.group(2) + r'\\])*)' + m.group(2), js[i:])
                 if m is None:
-                    print(js[i:])
                     return out
                 i += len(m.group(0))
                 string = m.group(0).replace(']]>', '\\x5D\\x5D\\x3E')
-                print("String literal: " + m.group(0))
 
                 # Also escape any characters which are not valid in CDATA
                 out += re.sub('([\x00-\x08\x0B\x0C\x0E-\x1F])', lambda m: "\\x%02x" % ord(m.group(1)), string) 
