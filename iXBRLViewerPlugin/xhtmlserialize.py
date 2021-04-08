@@ -39,6 +39,67 @@ class XHTMLSerializer:
             if m is not None and m.group(1) not in XHTMLSerializer.selfClosableElements and e.text is None:
                 e.text = ''
 
+    #
+    # Parse JavaScript and replace occurrences of ]]> with an appropriate
+    # altenative:
+    #
+    #   String literal: "]]>" => "\x5D\x5D\x3E"
+    #   Regex literal: /]]>/ => "]]\x3E"
+    #   Division or comment: ]]> => ]] >
+    #
+    def escapeCDATAEndMarkerInJavascript(self, js):
+        i = 0
+        s = len(js)
+        out = ''
+        while i < s:
+            m = re.match(r'(?s)^(.*?)(/|"|\'|`)', js[i:])
+            if m is None:
+                out += js[i:].replace(']]>', ']] >')
+                break
+            i += len(m.group(0))
+            out += m.group(0).replace(']]>', ']] >')
+            if m.group(2) == "/":
+                if js[i] == '/':
+                    # line comment
+                    m = re.match(r'^/[^\n\r]*', js[i:])
+                    out += m.group(0).replace(']]>', ']] >')
+                    i += len(m.group(0))
+                elif js[i] == '*':
+                    # normal comment
+                    m = re.match(r'(?s)^\*(.*?)\*/', js[i:])
+                    i += len(m.group(0))
+                    out += m.group(0).replace(']]>', ']] >')
+                else:
+                    # Avoid doing a regex search against the end of a long
+                    # string
+                    # Find the first non-whitespace character before the /
+                    x = len(out) - 2
+                    while x > 0 and out[x] in " \t\r\n":
+                        x -= 1
+                    # Any of the following implies a regex literal rather than division
+                    if out[x] in "[{(,=:?!&|;" or re.search(r'\breturn$', out[x-6 if x >= 6 else 0:x+1]) is not None:
+                        # regex literal
+                        m = re.match(r'^(\\.|[^[\\/]|\[\^?.[^]]*\])*/', js[i:])
+                        m.group(0)
+                        print("Regex literal: " + m.group(0))
+                        i += len(m.group(0))
+                        out += m.group(0).replace(']]>', ']]\\x3E')
+
+            elif m.group(2) in ("'",'"','`'):
+                m = re.match(r'(?s)^((?:\\.|[^' + m.group(2) + r'\\])*)' + m.group(2), js[i:])
+                if m is None:
+                    print(js[i:])
+                    return out
+                i += len(m.group(0))
+                string = m.group(0).replace(']]>', '\\x5D\\x5D\\x3E')
+                print("String literal: " + m.group(0))
+
+                # Also escape any characters which are not valid in CDATA
+                out += re.sub('([\x00-\x08\x0B\x0C\x0E-\x1F])', lambda m: "\\x%02x" % ord(m.group(1)), string) 
+
+        return out
+
+
     def serialize(self, xmlDocument, fout):
         self._expandEmptyTags(xmlDocument)
         xml = etree.tostring(xmlDocument, method="xml", encoding="utf-8", xml_declaration=True)
@@ -46,15 +107,10 @@ class XHTMLSerializer:
             # '<' in <script> must be escaped in XML, but must not be in HTML
             # Enclose in CDATA to make the XML valid.  CDATA is ignored by
             # HTML, so put CDATA tags in JS comments.
-            # Our script contains ']]>', so escape with escaped character in
-            # strings, and adjust to "]] >" out of strings.
-            # This will break if ]]> appears within a string but is not a
-            # complete string.
+            #
+            # Any ']]>' in the JS needs escaping, but how it's escaped depends on context.
             with open(self.embedViewerFile, encoding="utf-8") as fin:
-                script = fin.read()
-                script = re.sub('([\x00-\x08\x0B\x0C\x0E-\x1F])', lambda m: "\\x%02x" % ord(m.group(1)), script)
-                script = script.replace('"]]>"', '"\\x5D\\x5D\\x3E"').replace(']]>', ']] >')
-                script = "// <![CDATA[\n" + script + "\n// ]]>\n"; 
+                script = "// <![CDATA[\n" + self.escapeCDATAEndMarkerInJavascript(fin.read()) + "\n// ]]>\n"; 
             xml = xml.decode('utf-8').replace('IXBRL_VIEWER_SCRIPT_PLACEHOLDER', script).encode('utf-8')
         fout.write(xml)
         
