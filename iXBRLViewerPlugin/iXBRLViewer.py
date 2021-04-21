@@ -23,7 +23,9 @@ import pycountry
 from arelle.ValidateXbrlCalcs import inferredDecimals
 from arelle.ModelRelationshipSet import ModelRelationshipSet
 from .xhtmlserialize import XHTMLSerializer
+from urllib.parse import urlparse, urljoin
 import os
+import base64
 
 import io
 import zipfile
@@ -196,6 +198,19 @@ class IXBRLViewerBuilder:
         # lxml doesn't allow us enough control over CDATA escaping, so we have to post-process this.
         return etree.fromstring("<script type='text/javascript'>IXBRL_VIEWER_SCRIPT_PLACEHOLDER</script>")
 
+    def embedResources(self, xmlDocument):
+        for e in xmlDocument.getroot().iter('{http://www.w3.org/1999/xhtml}img'):
+            src = e.get('src', None)
+            if src is not None and not src.startswith('data:'):
+                url = urlparse(src)
+                if url.scheme == '':
+                    # Relative URI
+                    target = urljoin(self.dts.uri, src)
+                    with open(target, 'rb') as fin:
+                        b64 = base64.b64encode(fin.read())
+                    e.attrib['src'] = 'data:image/png;base64,' + b64.decode('utf-8')
+
+
     def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js", embedViewerFile=None):
         """
         Create an iXBRL file with XBRL data as a JSON blob, and script tags added
@@ -316,6 +331,8 @@ class IXBRLViewerBuilder:
                 child.append(e)
                 child.append(etree.Comment("END IXBRL VIEWER EXTENSIONS"))
                 break
+
+        self.embedResources(xmlDocument)
 
         return iv
 
