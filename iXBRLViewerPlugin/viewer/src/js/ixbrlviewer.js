@@ -201,6 +201,7 @@ iXBRLViewer.prototype.load = function() {
 
                         /* Focus on fact specified in URL fragment, if any */
                         inspector.handleFactDeepLink();
+                        inspector.showValidationWarning();
                     });
             }
         });
