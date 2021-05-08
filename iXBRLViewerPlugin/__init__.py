@@ -39,6 +39,8 @@ from .iXBRLViewer import IXBRLViewerBuilder
 
 from .localviewer import launchLocalViewer, VIEWER_BASENAME_SUFFIX
 from arelle.ModelDocument import Type
+import traceback
+import sys
 
 def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
     parser.add_option("--save-viewer",
@@ -50,6 +52,10 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       dest="viewerURL",
                       default="js/dist/ixbrlviewer.js",
                       help="Specify the URL to ixbrlviewer.js")
+    parser.add_option("--use-stub-viewer",
+                      action="store_true",
+                      dest="useStubViewer",
+                      help="Use stub viewer for faster loading of inspector")
 
 
 def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
@@ -65,7 +71,7 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
         out = getattr(options, 'saveViewerFile') or kwargs.get("responseZipStream")
         if out:
             viewerBuilder = IXBRLViewerBuilder(modelXbrl)
-            iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL)
+            iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL, useStubViewer=options.useStubViewer)
             iv.save(out, outBasenameSuffix=VIEWER_BASENAME_SUFFIX, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
     except Exception as ex:
         cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))
