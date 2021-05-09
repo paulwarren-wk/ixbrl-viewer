@@ -143,7 +143,6 @@ iXBRLViewer.prototype.load = function() {
             iframes = $(iv._reparentDocument());
         } 
         else {
-            console.log("Using stub viewer");
             iframes = $();
         }
 
@@ -163,53 +162,56 @@ iXBRLViewer.prototype.load = function() {
             iv._checkDocumentSetBrowserSupport();
         }
 
-        /* Poll for iframe load completing - there doesn't seem to be a reliable event that we can use */
-        var timer = setInterval(function () {
-            var complete = true;
-            iframes.each(function (n) {
-                var iframe = this;
-                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                if ((iframeDoc.readyState != 'complete' && iframeDoc.readyState != 'interactive') || $(iframe).contents().find("body").children().length == 0) {
-                    complete = false;
+        const progress = stubViewer ? 'Loading iXBRL Report' : 'Loading iXBRL Viewer';
+        iv.setProgress(progress).then(() => {
+            /* Poll for iframe load completing - there doesn't seem to be a reliable event that we can use */
+            var timer = setInterval(function () {
+                var complete = true;
+                iframes.each(function (n) {
+                    var iframe = this;
+                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if ((iframeDoc.readyState != 'complete' && iframeDoc.readyState != 'interactive') || $(iframe).contents().find("body").children().length == 0) {
+                        complete = false;
+                    }
+                });
+                if (complete) {
+                    clearInterval(timer);
+
+                    var viewer = iv.viewer = new Viewer(iv, iframes, report);
+
+                    viewer.initialize()
+                        .then(() => inspector.initialize(report))
+                        .then(() => {
+                            inspector.setViewer(viewer);
+                            interact('#viewer-pane').resizable({
+                                edges: { left: false, right: ".resize", bottom: false, top: false},
+                                restrictEdges: {
+                                    outer: 'parent',
+                                    endOnly: true,
+                                },
+                                restrictSize: {
+                                    min: { width: 100 }
+                                },
+                            })
+                            .on('resizestart', function (event) {
+                                $('#ixv').css("pointer-events", "none");
+                            })
+                            .on('resizemove', function (event) {
+                                var target = event.target;
+                                var w = 100 * event.rect.width / $(target).parent().width();
+                                target.style.width = w + '%';
+                                $('#inspector').css('width', (100 - w) + '%');
+                            })
+                            .on('resizeend', function (event) {
+                                $('#ixv').css("pointer-events", "auto");
+                            });
+                            $('#ixv .loader').remove();
+
+                            /* Focus on fact specified in URL fragment, if any */
+                            inspector.handleFactDeepLink();
+                        });
                 }
             });
-            if (complete) {
-                clearInterval(timer);
-
-                var viewer = iv.viewer = new Viewer(iv, iframes, report);
-
-                viewer.initialize()
-                    .then(() => inspector.initialize(report))
-                    .then(() => {
-                        inspector.setViewer(viewer);
-                        interact('#viewer-pane').resizable({
-                            edges: { left: false, right: ".resize", bottom: false, top: false},
-                            restrictEdges: {
-                                outer: 'parent',
-                                endOnly: true,
-                            },
-                            restrictSize: {
-                                min: { width: 100 }
-                            },
-                        })
-                        .on('resizestart', function (event) {
-                            $('#ixv').css("pointer-events", "none");
-                        })
-                        .on('resizemove', function (event) {
-                            var target = event.target;
-                            var w = 100 * event.rect.width / $(target).parent().width();
-                            target.style.width = w + '%';
-                            $('#inspector').css('width', (100 - w) + '%');
-                        })
-                        .on('resizeend', function (event) {
-                            $('#ixv').css("pointer-events", "auto");
-                        });
-                        $('#ixv .loader').remove();
-
-                        /* Focus on fact specified in URL fragment, if any */
-                        inspector.handleFactDeepLink();
-                    });
-            }
         });
     }, 0);
 }
