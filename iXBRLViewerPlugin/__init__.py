@@ -56,6 +56,11 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       action="store_true",
                       dest="useStubViewer",
                       help="Use stub viewer for faster loading of inspector")
+    parser.add_option("--viewer-suffix",
+                      action="store",
+                      default="",
+                      dest="viewerBasenameSuffix",
+                      help="Suffix for basename of viewer files")
 
 
 def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
@@ -70,9 +75,9 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
     try:
         out = getattr(options, 'saveViewerFile') or kwargs.get("responseZipStream")
         if out:
-            viewerBuilder = IXBRLViewerBuilder(modelXbrl)
+            viewerBuilder = IXBRLViewerBuilder(modelXbrl, basenameSuffix=options.viewerBasenameSuffix)
             iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL, useStubViewer=options.useStubViewer)
-            iv.save(out, outBasenameSuffix=VIEWER_BASENAME_SUFFIX, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
+            iv.save(out, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
     except Exception as ex:
         cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))
 
