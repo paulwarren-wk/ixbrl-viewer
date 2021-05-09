@@ -136,9 +136,16 @@ iXBRLViewer.prototype._checkDocumentSetBrowserSupport = function() {
 iXBRLViewer.prototype.load = function() {
     var iv = this;
     var inspector = this.inspector;
-    setTimeout(function(){
-
-        var iframes = $(iv._reparentDocument());
+    setTimeout(function() {
+        var iframes;
+        const stubViewer = $('body').hasClass('ixv-stub-viewer');
+        if (!stubViewer) {
+            iframes = $(iv._reparentDocument());
+        } 
+        else {
+            console.log("Using stub viewer");
+            iframes = $();
+        }
 
         var taxonomyData = iv._getTaxonomyData();
         if (taxonomyData === null) {
@@ -149,7 +156,7 @@ iXBRLViewer.prototype.load = function() {
         var report = new iXBRLReport(JSON.parse(taxonomyData));
         if (report.isDocumentSet()) {
             var ds = report.documentSetFiles();
-            for (var i = 1; i < ds.length; i++) {
+            for (var i = stubViewer ? 0 : 1; i < ds.length; i++) {
                 var iframe = $("<iframe />").attr("src", ds[i]).appendTo("#ixv #iframe-container");
                 iframes = iframes.add(iframe);
             }
