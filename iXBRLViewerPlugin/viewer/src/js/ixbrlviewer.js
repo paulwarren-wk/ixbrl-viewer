@@ -158,10 +158,16 @@ iXBRLViewer.prototype._checkDocumentSetBrowserSupport = function () {
 iXBRLViewer.prototype.load = function () {
     var iv = this;
     var inspector = this.inspector;
-    setTimeout(function () {
-
+    setTimeout(function() {
         iv._loadInspectorHTML();
-        var iframes = $(iv._reparentDocument());
+        var iframes;
+        const stubViewer = $('body').hasClass('ixv-stub-viewer');
+        if (!stubViewer) {
+            iframes = $(iv._reparentDocument());
+        } 
+        else {
+            iframes = $();
+        }
 
         var taxonomyData = iv._getTaxonomyData();
         if (taxonomyData === null) {
@@ -172,42 +178,44 @@ iXBRLViewer.prototype.load = function () {
         var report = new iXBRLReport(JSON.parse(taxonomyData));
         if (report.isDocumentSet()) {
             var ds = report.documentSetFiles();
-            for (var i = 1; i < ds.length; i++) {
+            for (var i = stubViewer ? 0 : 1; i < ds.length; i++) {
                 var iframe = $("<iframe />").attr("src", ds[i]).appendTo("#ixv #iframe-container");
                 iframes = iframes.add(iframe);
             }
             iv._checkDocumentSetBrowserSupport();
         }
 
-        /* Poll for iframe load completing - there doesn't seem to be a reliable event that we can use */
-        var timer = setInterval(function () {
-            var complete = true;
-            iframes.each(function (n) {
-                var iframe = this;
-                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                if ((iframeDoc.readyState != 'complete' && iframeDoc.readyState != 'interactive') || $(iframe).contents().find("body").children().length == 0) {
-                    complete = false;
-                }
-            });
-            if (complete) {
-                clearInterval(timer);
+        const progress = stubViewer ? 'Loading iXBRL Report' : 'Loading iXBRL Viewer';
+        iv.setProgress(progress).then(() => {
+            /* Poll for iframe load completing - there doesn't seem to be a reliable event that we can use */
+            var timer = setInterval(function () {
+                var complete = true;
+                iframes.each(function (n) {
+                    var iframe = this;
+                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if ((iframeDoc.readyState != 'complete' && iframeDoc.readyState != 'interactive') || $(iframe).contents().find("body").children().length == 0) {
+                        complete = false;
+                    }
+                });
+                if (complete) {
+                    clearInterval(timer);
 
-                var viewer = iv.viewer = new Viewer(iv, iframes, report);
+                    var viewer = iv.viewer = new Viewer(iv, iframes, report);
 
-                viewer.initialize()
-                    .then(() => inspector.initialize(report))
-                    .then(() => {
-                        inspector.setViewer(viewer);
-                        interact('#viewer-pane').resizable({
-                            edges: { left: false, right: ".resize", bottom: false, top: false },
-                            restrictEdges: {
-                                outer: 'parent',
-                                endOnly: true,
-                            },
-                            restrictSize: {
-                                min: { width: 100 }
-                            },
-                        })
+                    viewer.initialize()
+                        .then(() => inspector.initialize(report))
+                        .then(() => {
+                            inspector.setViewer(viewer);
+                            interact('#viewer-pane').resizable({
+                                edges: { left: false, right: ".resize", bottom: false, top: false},
+                                restrictEdges: {
+                                    outer: 'parent',
+                                    endOnly: true,
+                                },
+                                restrictSize: {
+                                    min: { width: 100 }
+                                },
+                            })
                             .on('resizestart', function (event) {
                                 $('#ixv').css("pointer-events", "none");
                             })
@@ -220,13 +228,14 @@ iXBRLViewer.prototype.load = function () {
                             .on('resizeend', function (event) {
                                 $('#ixv').css("pointer-events", "auto");
                             });
-                        $('#ixv .loader').remove();
+                            $('#ixv .loader').remove();
 
-                        /* Focus on fact specified in URL fragment, if any */
-                        inspector.handleFactDeepLink();
-                        inspector.showValidationWarning();
-                    });
-            }
+                            /* Focus on fact specified in URL fragment, if any */
+                            inspector.handleFactDeepLink();
+                            inspector.showValidationWarning();
+                        });
+                }
+            });
         });
     }, 0);
 }
