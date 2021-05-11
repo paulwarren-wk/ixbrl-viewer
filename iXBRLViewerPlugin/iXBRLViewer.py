@@ -202,7 +202,6 @@ class IXBRLViewerBuilder:
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
 
-<<<<<<< HEAD
     def validationErrors(self):
         dts = self.dts
 
@@ -223,16 +222,11 @@ class IXBRLViewerBuilder:
 
         return errors
 
-    def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js"):
-||||||| merged common ancestors
-    def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js"):
-=======
     def getStubDocument(self):
         with open(os.path.join(os.path.dirname(__file__),"stubviewer.html")) as fin:
             return etree.parse(fin)
 
     def createViewer(self, scriptUrl="js/dist/ixbrlviewer.js", useStubViewer = False):
->>>>>>> stub-viewer
         """
         Create an iXBRL file with XBRL data as a JSON blob, and script tags added
         """
