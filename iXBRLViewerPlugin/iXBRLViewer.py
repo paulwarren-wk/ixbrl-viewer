@@ -212,7 +212,7 @@ class IXBRLViewerBuilder:
 
         errors = []
 
-        for logRec in getattr(logHandler, "logRecordBuffer"):
+        for logRec in logHandler.logRecordBuffer:
             if logRec.levelno > logging.INFO:
                 errors.append({
                     "sev": logRec.levelname.title().upper(),
