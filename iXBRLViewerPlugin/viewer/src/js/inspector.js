@@ -39,7 +39,6 @@ export function Inspector(iv) {
         .attr('href', require('../img/favicon.ico'))
         .appendTo('head');
     this._iv = iv;
-    this._chart = new IXBRLChart();
     this._viewerOptions = new ViewerOptions()
     
     $(".collapsible-header").click(function () { 
@@ -73,6 +72,7 @@ export function Inspector(iv) {
 Inspector.prototype.initialize = function (report) {
     var inspector = this;
     return new Promise(function (resolve, reject) {
+        inspector._chart = new IXBRLChart();
         inspector._report = report;
         report.setViewerOptions(inspector._viewerOptions);
         inspector._iv.setProgress("Building search index").then(() => {
