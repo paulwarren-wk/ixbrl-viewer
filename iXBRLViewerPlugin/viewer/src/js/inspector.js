@@ -765,9 +765,22 @@ Inspector.prototype.setLanguage = function (lang) {
 }
 
 Inspector.prototype.showValidationWarning = function () {
+    var message;
+    var title;
     if (this._report.hasValidationErrors()) {
-        var message = $("<div></div>").append("<p>This report contains <b>XBRL validation errors</b>.  These errors may prevent this document from opening correctly in other XBRL software.</p>");
-        var mb = new MessageBox("Validation errors", message, "View Details", "Dismiss");
+        message = $("<div></div>").append("<p>This report contains <b>XBRL validation errors</b>.  These errors may prevent this document from opening correctly in other XBRL software.</p>");
+        title = "Validation errors";
+    } 
+    else if (this._report.hasValidationWarnings()) {
+        message = $("<div></div>").append("<p>This report contains <b>XBRL validation warnings</b>.  These warnings may indicate issues with the content of the report.</p>");
+        title = "Validation warnings";
+    }
+    else if (this._report.hasValidationInconsistencies()) {
+        message = $("<div></div>").append("<p>This report contains <b>XBRL calculation inconsistencies</b>.  These warnings may indicate issues with the content of the report.</p>");
+        title = "Calculation inconsistencies";
+    }
+    if (message) {
+        var mb = new MessageBox(title, message, "View Details", "Dismiss");
         mb.show(
             () => {
                 const vr = new ValidationReportDialog();

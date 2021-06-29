@@ -265,5 +265,13 @@ iXBRLReport.prototype.usesAnchoring = function() {
 }
 
 iXBRLReport.prototype.hasValidationErrors = function() {
-    return this.data.validation !== undefined && this.data.validation.length > 0;
+    return this.data.validation !== undefined && this.data.validation.filter(i => i.sev == 'ERROR').length > 0;
+}
+
+iXBRLReport.prototype.hasValidationWarnings = function() {
+    return this.data.validation !== undefined && this.data.validation.filter(i => i.sev == 'WARNING').length > 0;
+}
+
+iXBRLReport.prototype.hasValidationInconsistencies = function() {
+    return this.data.validation !== undefined && this.data.validation.filter(i => i.sev == 'INCONSISTENCY').length > 0;
 }
