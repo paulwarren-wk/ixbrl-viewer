@@ -26,6 +26,7 @@ limitations under the License.
                 <div class="arrow"></div>
                 <div class="items"></div>
         </div></span><span class="content"></span>
+        <span class="validation-warning" title="Report has validation errors"></span>
     </div>
   </div>
   <div id="inspector" class="no-fact-selected">
@@ -35,6 +36,8 @@ limitations under the License.
         <h1 class="footnote-mode-only" data-i18n="inspector.footnoteProperties">Footnote Properties</h1>
         <div class="back search-mode-only">
         </div>
+        <div class="back outline-mode-only">
+        </div>
         <div class="menu" id='display-options-menu'>
           <div class="menu-title"></div>
           <div class="content-container">
@@ -43,11 +46,12 @@ limitations under the License.
         </div>
       </div>
       <div class="controls">
-        <div class="search-button">
-          <span class="icon-search"></span>
+        <div class="outline-button" data-i18n="[title]inspector.documentOutline" title="Document outline">
+        </div>
+        <div class="search-button" data-i18n="[title]inspector.searchTitle" title="Search">
         </div>
         <div class="next-prev">
-            <span class="ixbrl-prev-tag"></span><span class="ixbrl-next-tag"></span>
+            <span class="ixbrl-prev-tag" data-i18n="[title]inspector.previousTag" title="Previous tag"></span><span class="ixbrl-next-tag" data-i18n="[title]inspector.nextTag" title="Next tag"></span>
         </div>
       </div>
 
@@ -99,7 +103,7 @@ limitations under the License.
         </div>
         <div class="fact-selected-only">
           <div class="hidden-fact-tag" data-i18n="inspector.hiddenFact">Hidden Fact</div>
-          <div class="concealed-fact-tag" data-i18n="inspector.concealedFact">Concealed Fact</div>
+          <div class="html-hidden-fact-tag" data-i18n="inspector.concealedFact">Concealed Fact</div>
           <div class="collapsible-section">
             <div class="fact-inspector collapsible-body">
             </div>
@@ -129,7 +133,17 @@ limitations under the License.
             </div>
             <div class="collapsible-section">
                <h3 class="collapsible-header" data-i18n="inspector.footnotes">Footnotes</h3>
-               <div class="collapsible-body footnotes">
+               <div class="collapsible-body footnotes fact-list">
+               </div>
+            </div>
+            <div class="collapsible-section footnote-facts-section">
+               <h3 class="collapsible-header" data-i18n="inspector.associatedFacts">Associated Facts</h3>
+               <div class="collapsible-body footnote-facts fact-list">
+               </div>
+            </div>
+            <div class="collapsible-section">
+               <h3 class="collapsible-header" data-i18n="inspector.fact-groups">Sections</h3>
+               <div class="collapsible-body fact-groups fact-list">
                </div>
             </div>
           </div>
@@ -151,6 +165,16 @@ limitations under the License.
           <div class="search-overlay-text"><p class="title" data-i18n="inspector.factSearch">Fact Search</p><p class="text">Please enter some search terms</p></div>
         </div>
       </div>
+
+      <div class="outline outline-mode-only">
+        <div class="no-outline-overlay">
+          <div class="no-outline-overlay-icon"></div>
+          <p class="title" data-i18n="inspector.outlineUnavailable">Outline Unavailable</p>
+        </div>
+        <div class="body">
+        </div>
+      </div>
+
     </div>
     <div class="inspector-foot powered-by">
         <a href="https://filings.xbrl.org/">filings.xbrl.org</a>
@@ -158,11 +182,42 @@ limitations under the License.
   </div>
   <div class="dialog-mask">
   </div>
-  <div id="chart" class="dialog full-screen">
-    <div class="close"></div>
-    <div class="contents">
-      <div class="chart-container" ><canvas id='chart-canvas'></canvas></div>
-      <div class="other-aspects"></div>
+  <div id="dialog-container"></div>
+  <div id="dialog-templates">
+    <div class="dialog full-screen chart">
+      <div class="close"></div>
+      <div class="contents">
+        <div class="chart-container" ><canvas id='chart-canvas'></canvas></div>
+        <div class="other-aspects"></div>
+      </div>
+    </div>
+    <div class="dialog validation-report">
+      <div class="close"></div>
+      <div class="contents">
+          <h2 data-i18n="inspector.validationResults">Validation results</h2>
+          <table>
+              <thead>
+                  <th data-i18n="inspector.validationSeverity">Severity</th>
+                  <th data-i18n="inpsector.validationCode">Code</th>
+                  <th data-i18n="inspector.validationMessage">Message</th>
+              </thead>
+              <tbody>
+
+              </tbody>
+          </table>
+          <div class="buttons">
+          </div>
+      </div>
+    </div>
+    <div class="dialog message-box">
+      <div class="close"></div>
+      <div class="contents">
+        <h2 class="title"></h2>
+        <div class="message">
+        </div>
+        <div class="buttons">
+        </div>
+      </div>
     </div>
   </div>
   <div id="validation-report" class="dialog">

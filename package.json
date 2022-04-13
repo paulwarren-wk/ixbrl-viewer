@@ -10,7 +10,8 @@
     "test": "jest",
     "dev": "webpack --config iXBRLViewerPlugin/viewer/webpack.dev.js",
     "prod": "webpack --config iXBRLViewerPlugin/viewer/webpack.prod.js",
-    "stylelint": "stylelint iXBRLViewerPlugin/viewer/src/less/*.less"
+    "stylelint": "stylelint iXBRLViewerPlugin/viewer/src/less/*.less",
+    "i18n": "i18next -c iXBRLViewerPlugin/viewer/i18next-parser.config.js"
   },
   "repository": {
     "type": "git",
@@ -29,7 +30,7 @@
     "babel-jest": "^26.0.1",
     "babel-preset-env": "^1.7.0",
     "base64-inline-loader": "^1.1.1",
-    "i18next": "^19.9.1",
+    "i18next": "^20.3.2",
     "jquery-i18next": "^1.2.1",
     "chart.js": "^2.9.3",
     "core-js": "^3.6.4",
@@ -51,6 +52,8 @@
     "webpack-cli": "^3.3.11",
     "webpack-merge": "^4.2.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "i18next-parser": "^6.0.0"
+  },
   "license": "Apache-2.0"
 }

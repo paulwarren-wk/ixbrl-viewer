@@ -28,22 +28,34 @@ import { Fact } from './fact.js';
 import { Footnote } from './footnote.js';
 import { ValidationReportDialog } from './validationreport.js';
 import { MessageBox } from './messagebox.js';
+import { DocumentOutline } from './outline.js';
 
 const SEARCH_PAGE_SIZE = 100
 
 export function Inspector(iv) {
     this._iv = iv;
     this._viewerOptions = new ViewerOptions()
+    this._currentItem = null;
 }
 
 Inspector.prototype.i18nInit = function () {
     return i18next.init({
         lng: this.preferredLanguages()[0],
+        // Do not apply translations that are present but with an empty string
+        returnEmptyString: false,
         fallbackLng: 'en',
         debug: false,
         resources: {
-            en: require('../i18n/en.json'),
-            es: require('../i18n/es.json')
+            en: { 
+                translation: require('../i18n/en/translation.json'),
+                referenceParts: require('../i18n/en/referenceparts.json'),
+                currencies: require('../i18n/en/currencies.json')
+            },
+            es: { 
+                translation: require('../i18n/es/translation.json'),
+                referenceParts: require('../i18n/es/referenceparts.json'),
+                currencies: require('../i18n/es/currencies.json')
+            }
         }
     }).then((t) => {
         jqueryI18next.init(i18next, $, {
@@ -52,15 +64,15 @@ Inspector.prototype.i18nInit = function () {
             handleName: 'localize', // --> appends $(selector).localize(opts);
             selectorAttr: 'data-i18n', // selector for translating elements
             targetAttr: 'i18n-target', // data-() attribute to grab target element to translate (if different than itself)
-            optionsAttr: 'i18n-options', // data-() attribute that contains options, will load/set if useOptionsAttr = true
             useOptionsAttr: false, // see optionsAttr
             parseDefaultValueFromContent: true // parses default values from content ele.val or ele.text
         });
     });
 }
 
-Inspector.prototype.initialize = function (report) {
+Inspector.prototype.initialize = function (report, viewer) {
     var inspector = this;
+    this._viewer = viewer;
     return new Promise(function (resolve, reject) {
         inspector._chart = new IXBRLChart();
         inspector._report = report;
@@ -77,12 +89,15 @@ Inspector.prototype.initialize = function (report) {
                 }
             });
             $("#inspector .controls .search-button").on("click", function () {
-                $(this).closest("#inspector").toggleClass("search-mode");
+                $(this).closest("#inspector").removeClass("outline-mode").toggleClass("search-mode");
+            });
+            $("#inspector .controls .outline-button").on("click", function () {
+                $(this).closest("#inspector").removeClass("search-mode").toggleClass("outline-mode");
             });
             $("#inspector-head .back").on("click", function () {
-                $(this).closest("#inspector").removeClass("search-mode");
+                $(this).closest("#inspector").removeClass("search-mode").removeClass("outline-mode");
             });
-            $(".popup-trigger").on("hover", function () { $(this).find(".popup-content").show() }, function () { $(this).find(".popup-content").hide() });
+            $(".popup-trigger").hover(function () { $(this).find(".popup-content").show() }, function () { $(this).find(".popup-content").hide() });
             inspector._toolbarMenu = new Menu($("#toolbar-highlight-menu"));
             inspector.buildToolbarHighlightMenu();
 
@@ -94,25 +109,29 @@ Inspector.prototype.initialize = function (report) {
             // Listen to messages posted to this window
             $(window).on("message", (e) => inspector.handleMessage(e));
             report.setViewerOptions(inspector._viewerOptions);
+            inspector.outline = new DocumentOutline(report);
+            inspector.createOutline();
             inspector._iv.setProgress(i18next.t("search.buildingSearchIndex")).then(() => {
                 inspector._search = new ReportSearch(report);
                 inspector.setupSearchControls();
                 inspector.buildDisplayOptionsMenu();
                 inspector.buildToolbarHighlightMenu();
                 inspector.buildHighlightKey();
+                inspector.setupValidationReportIcon();
+                inspector.initializeViewer();
                 resolve();
             });
         });
     });
 }
 
-Inspector.prototype.setViewer = function (viewer) {
-    this._viewer = viewer;
+Inspector.prototype.initializeViewer = function () {
+    var viewer = this._viewer;
     viewer.onSelect.add((id, eltSet) => this.selectItem(id, eltSet));
     viewer.onMouseEnter.add((id) => this.viewerMouseEnter(id));
     viewer.onMouseLeave.add(id => this.viewerMouseLeave(id));
-    $('.ixbrl-next-tag').click(() => viewer.selectNextTag());
-    $('.ixbrl-prev-tag').click(() => viewer.selectPrevTag());
+    $('.ixbrl-next-tag').click(() => viewer.selectNextTag(this._currentItem));
+    $('.ixbrl-prev-tag').click(() => viewer.selectPrevTag(this._currentItem));
     this.search();
 }
 
@@ -160,7 +179,7 @@ Inspector.prototype.buildDisplayOptionsMenu = function () {
 
 Inspector.prototype.buildToolbarHighlightMenu = function () {
     this._toolbarMenu.reset();
-    this._toolbarMenu.addCheckboxItem(i18next.t("toolbar.xbrlElements"), (checked) => this.highlightAllTags(checked), "highlight-tags");
+    this._toolbarMenu.addCheckboxItem(i18next.t("toolbar.xbrlElements"), (checked) => this.highlightAllTags(checked), "highlight-tags", null, this._iv.options.highlightTagsOnStartup);
     this._iv.callPluginMethod("extendToolbarHighlightMenu", this._toolbarMenu);
 }
 
@@ -187,7 +206,7 @@ Inspector.prototype.factListRow = function(f) {
     var row = $('<div class="fact-list-item"></div>')
         .click(() => this.selectItem(f.id))
         .dblclick(() => $('#inspector').removeClass("search-mode"))
-        .mousedown(function (e) { 
+        .mousedown((e) => { 
             /* Prevents text selection via double click without
              * disabling click+drag text selection (which user-select:
              * none would )
@@ -307,8 +326,53 @@ Inspector.prototype.updateCalculation = function (fact, elr) {
     $('.calculations .tree').empty().append(this._calculationHTML(fact, elr));
 }
 
+Inspector.prototype.createOutline = function () {
+    if (this.outline.hasOutline()) {
+        $('.outline .no-outline-overlay').hide();
+        var container = $('<div class="fact-list"></div>').appendTo($('.outline .body'));
+        for (const elr of this.outline.sortedSections()) {
+            $('<div class="fact-list-item"></div>')
+                .text(this._report.getRoleLabel(elr))
+                .click(() => this.selectItem(this.outline.sections[elr].id))
+                .dblclick(() => $('#inspector').removeClass("outline-mode"))
+                .mousedown((e) => {
+                    // Prevent text selection by double click
+                    if (e.detail > 1) { 
+                        e.preventDefault() 
+                    } 
+                })
+                .appendTo(container);
+        }
+    }
+}
+
+Inspector.prototype.updateOutline = function (cf) {
+    $('.fact-groups').empty();
+    for (const elr of this.outline.groupsForFact(cf)) {
+        $('<div class="fact-list-item"></div>')
+            .text(this._report.getRoleLabel(elr))
+            .click(() => this.selectItem(this.outline.sections[elr].id))
+            .appendTo($('.fact-groups'));
+    }
+
+}
+
 Inspector.prototype.updateFootnotes = function (fact) {
+    // Outbound fact->footnote and fact->fact links
     $('.footnotes').empty().append(this._footnotesHTML(fact));
+
+    // Inbound fact->fact footnote links.  Not widely used, so only show the
+    // section if we have some. 
+    if (fact.linkedFacts.length > 0) {
+        $('#inspector .footnote-facts-section')
+            .show()
+            .find('.footnote-facts')
+            .empty()
+            .append(this._footnoteFactsHTML(fact));
+    }
+    else {
+        $('#inspector .footnote-facts-section').hide();
+    }
 }
 
 
@@ -359,7 +423,7 @@ Inspector.prototype._referencesHTML = function (fact) {
         var tbody = body.find("tbody");
         $.each(r, function (j,p) {
             var row = $("<tr>")
-                .append($("<th></th>").text(i18next.t(`referenceParts.${p.part}`, {defaultValue: p.part})))
+                .append($("<th></th>").text(i18next.t(`referenceParts:${p.part}`, {defaultValue: p.part})))
                 .append($("<td></td>").text(p.value))
                 .appendTo(tbody);
             if (p.part == 'URI') {
@@ -419,15 +483,20 @@ Inspector.prototype._calculationHTML = function (fact, elr) {
 }
 
 Inspector.prototype._footnotesHTML = function (fact) {
-    var html = $("<div></div>");
+    var html = $("<div></div>").addClass("fact-list");
     $.each(fact.footnotes(), (n, fn) => {
-        $("<div></div>")
-            .addClass("block-list-item")
-            .appendTo(html)
-            .text(truncateLabel(fn.textContent(), 120))
-            .mouseenter(() => this._viewer.linkedHighlightFact(fn))
-            .mouseleave(() => this._viewer.clearLinkedHighlightFact(fn))
-            .click(() => this.selectItem(fn.id));
+        if (fn instanceof Footnote) {
+            $("<div></div>")
+                .addClass("block-list-item")
+                .text(truncateLabel(fn.textContent(), 120))
+                .mouseenter(() => this._viewer.linkedHighlightFact(fn))
+                .mouseleave(() => this._viewer.clearLinkedHighlightFact(fn))
+                .click(() => this.selectItem(fn.id))
+                .appendTo(html);
+        }
+        else if (fn instanceof Fact) {
+            html.append(this.factListRow(fn));
+        }
     });
     return html;
 }
@@ -529,7 +598,7 @@ Inspector.prototype._updateValue = function (item, showAll, context) {
     }
 
     var valueSpan = $('tr.value td .value', context).empty().text(v);
-    if (item instanceof Fact && item.isNil()) {
+    if (item instanceof Fact && (item.isNil() || item.isInvalidIXValue())) {
         valueSpan.wrapInner("<i></i>");
     }
 
@@ -548,10 +617,10 @@ Inspector.prototype._updateEntityIdentifier = function (fact, context) {
     }
 }
 
-Inspector.prototype._footnoteFactsHTML = function() {
+Inspector.prototype._footnoteFactsHTML = function(fact) {
     var html = $('<div></div>');
-    this._currentItem.facts.forEach((fact) =>  {
-        html.append(this.factListRow(fact));
+    fact.linkedFacts.forEach((linkedFact) =>  {
+        html.append(this.factListRow(linkedFact));
     });
     return html;
 }
@@ -586,7 +655,7 @@ Inspector.prototype._selectionSummaryAccordian = function() {
                     $("<span></span>") 
                         .addClass("analyse")
                         .text("")
-                        .click(() => this._chart.analyseDimension(fact,["p"]))
+                        .click(() => this.analyseDimension(fact, ["p"]))
                 );
             }
             this._updateEntityIdentifier(fact, factHTML);
@@ -610,9 +679,7 @@ Inspector.prototype._selectionSummaryAccordian = function() {
                         $("<span></span>") 
                             .addClass("analyse")
                             .text("")
-                            .on("click", () => {
-                                this._chart.analyseDimension(fact, [ aspect.name() ])
-                            })
+                            .on("click", () => this.analyseDimension(fact, [aspect.name()]))
                     )
                 }
                 var s = $('<div class="dimension-value"></div>')
@@ -637,6 +704,11 @@ Inspector.prototype._selectionSummaryAccordian = function() {
     return a;
 }
 
+Inspector.prototype.analyseDimension = function(fact, dimensions) {
+    var chart = new IXBRLChart();
+    chart.analyseDimension(fact, dimensions);
+}
+
 Inspector.prototype.update = function () {
     var inspector = this;
     var cf = inspector._currentItem;
@@ -645,7 +717,7 @@ Inspector.prototype.update = function () {
         $('#inspector').addClass('no-fact-selected');
     } 
     else { 
-        $('#inspector').removeClass('no-fact-selected').removeClass("hidden-fact").removeClass("concealed-fact");
+        $('#inspector').removeClass('no-fact-selected').removeClass("hidden-fact").removeClass("html-hidden-fact");
 
         $('#inspector .fact-inspector')
             .empty()
@@ -655,6 +727,7 @@ Inspector.prototype.update = function () {
             $('#inspector').removeClass('footnote-mode');
 
             this.updateCalculation(cf);
+            this.updateOutline(cf);
             this.updateFootnotes(cf);
             this.updateAnchoring(cf);
             $('div.references').empty().append(this._referencesHTML(cf));
@@ -679,12 +752,13 @@ Inspector.prototype.update = function () {
                 $('#inspector').addClass('hidden-fact');
             }
             else if (cf.isHTMLHidden()) {
-                $('#inspector').addClass('concealed-fact');
+                $('#inspector').addClass('html-hidden-fact');
             }
+
         }
         else if (cf instanceof Footnote) {
             $('#inspector').addClass('footnote-mode');
-            $('#inspector .footnote-details .footnote-facts').empty().append(this._footnoteFactsHTML());
+            $('#inspector .footnote-details .footnote-facts').empty().append(this._footnoteFactsHTML(cf));
         }
         $('.fact-details').localize();
     }
@@ -790,3 +864,16 @@ Inspector.prototype.showValidationWarning = function () {
         );
     }
 }
+
+Inspector.prototype.showValidationReport = function () {
+    const vr = new ValidationReportDialog();
+    vr.displayErrors(this._report.data.validation);
+    vr.show();
+}
+
+Inspector.prototype.setupValidationReportIcon = function () {
+    if (this._report.hasValidationErrors()) {
+        $("#ixv .validation-warning").show().on("click", () => this.showValidationReport());
+    }
+}
+

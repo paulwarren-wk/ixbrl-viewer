@@ -23,9 +23,10 @@ import i18next from "i18next";
 
 export function Fact(report, factId) {
     this.f = report.data.facts[factId];
-    this._ixNode = report.getIXNodeForItemId(factId);
+    this.ixNode = report.getIXNodeForItemId(factId);
     this._report = report;
     this.id = factId;
+    this.linkedFacts = [];
 }
 
 Fact.prototype.report = function() {
@@ -75,7 +76,10 @@ Fact.prototype.value = function() {
 
 Fact.prototype.readableValue = function() {
     var v = this.f.v;
-    if (this.isNumeric()) {
+    if (this.isInvalidIXValue()) {
+        v = "Invalid value";
+    }
+    else if (this.isNumeric()) {
         var d = this.decimals();
         var formattedNumber;
         if (this.isNil()) {
@@ -104,6 +108,13 @@ Fact.prototype.readableValue = function() {
             .prepend(document.createTextNode(' '));
         /* Replace runs of whitespace (including nbsp) with a single space */
         v = html.text().replace(/[\u00a0\s]+/g, " ").trim();
+    }
+    else if (this.isEnumeration()) {
+        var labels = [];
+        for (const qn of v.split(' ')) {
+            labels.push(this._report.getLabelOrName(qn, 'std'));
+        }
+        v = labels.join(', ');
     }
     return v;
 }
@@ -194,22 +205,26 @@ Fact.prototype.isNil = function() {
     return this.f.v === null
 }
 
+Fact.prototype.isInvalidIXValue = function() {
+    return this.f.err == 'INVALID_IX_VALUE';
+}
+
 Fact.prototype.readableAccuracy = function () {
     if (!this.isNumeric() || this.isNil()) {
         return i18next.t("common.notApplicable");
     }
     var d = this.decimals();
     if (d === undefined) {
-        return i18next.t("currencies.accuracyInfinite")
+        return i18next.t("common.accuracyInfinite")
     }
     else if (d === null) {
         return i18next.t("common.unspecified");
     }
-    var name = i18next.t(`currencies.accuracy${d}`, {defaultValue:"noName"});
+    var name = i18next.t(`currencies:accuracy${d}`, {defaultValue:"noName"});
     if (this.isMonetaryValue()) {
         var currency = this.report().qname(this.unit().value()).localname;
         if (d == 2) {
-            var name = i18next.t(`currencies.cents${currency}`, {defaultValue: name});
+            var name = i18next.t(`currencies:cents${currency}`, {defaultValue: name});
         }
     }
     if (name !== "noName") {
@@ -226,7 +241,11 @@ Fact.prototype.identifier = function () {
 }
 
 Fact.prototype.escaped = function () {
-    return this._ixNode.escaped;
+    return this.ixNode.escaped;
+}
+
+Fact.prototype.isEnumeration = function() {
+    return this.concept().isEnumeration();
 }
 
 Fact.prototype.footnotes = function () {
@@ -234,11 +253,11 @@ Fact.prototype.footnotes = function () {
 }
 
 Fact.prototype.isHidden = function () {
-    return this._ixNode.wrapperNode.length == 0;
+    return this.ixNode.wrapperNode.length == 0;
 }
 
 Fact.prototype.isHTMLHidden = function () {
-    return !this._ixNode.visible;
+    return this.ixNode.htmlHidden;
 }
 
 Fact.prototype.widerConcepts = function () {
@@ -258,3 +277,9 @@ Fact.prototype.narrowerConcepts = function () {
     }
     return concepts;
 }
+
+// Facts that are the source of relationships to this fact.
+Fact.prototype.addLinkedFact = function (f) {
+    this.linkedFacts.push(f);
+}
+

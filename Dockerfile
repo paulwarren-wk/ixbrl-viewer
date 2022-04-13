@@ -1,4 +1,4 @@
-FROM python:3.6 as build
+FROM python:3.9-buster as build
 
 ARG PIP_INDEX_URL
 ARG NPM_CONFIG__AUTH
@@ -13,14 +13,11 @@ RUN pip install -r requirements-dev.txt
 WORKDIR /build/
 ADD . /build/
 
-# The following command replaces the @VERSION@ string in setup.py and package.json
+# The following command replaces the version string in setup.py and package.json
 # with the tagged version number from GIT_TAG or `0.0.0` if GIT_TAG is not set
 ARG VERSION=${GIT_TAG:-0.0.0}
-RUN echo "Version = $VERSION"
-# Update line 6 in setup.py
-RUN sed -i "6 s/0.0.0/$VERSION/" setup.py
-# Update line 3 in package.json
-RUN sed -i "3 s/0.0.0/$VERSION/" package.json
+RUN sed -i "s/version='0\.0\.0'/version='$VERSION'/" setup.py
+RUN sed -i "s/\"version\": \"0\.0\.0\"/\"version\": \"$VERSION\"/" package.json
 
 # build ixbrlviewer.js
 RUN apt-get update && apt-get install -y curl && \
@@ -37,6 +34,11 @@ RUN npm run stylelint
 
 # Upload ixbrlviewer.js to github artifacts
 ARG BUILD_ARTIFACTS_GITHUB_RELEASE_ASSETS=/build/iXBRLViewerPlugin/viewer/dist/ixbrlviewer.js
+
+# Host ixviewer.js on CDN
+RUN mkdir /static_release
+RUN tar -czf /static_release/assets.tar.gz -C /build/iXBRLViewerPlugin/viewer/dist/ .
+ARG BUILD_ARTIFACTS_CDN=/static_release/assets.tar.gz
 
 # python tests
 ARG BUILD_ARTIFACTS_TEST=/test_reports/*.xml

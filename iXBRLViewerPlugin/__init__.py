@@ -41,6 +41,7 @@ from arelle.ModelDocument import Type
 import argparse
 import traceback
 import sys
+
 import traceback
 import sys
 
@@ -54,9 +55,6 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       dest="viewerURL",
                       default="js/dist/ixbrlviewer.js",
                       help="Specify the URL to ixbrlviewer.js")
-    # Force logging to use a buffer so that messages are retained and can be
-    # retrieved for inclusion with the viewer.
-    parser.add_option("--logToBuffer", action="store_true", dest="logToBuffer", default=True, help=argparse.SUPPRESS)
     parser.add_option("--use-stub-viewer",
                       action="store_true",
                       dest="useStubViewer",
@@ -66,6 +64,13 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       default="",
                       dest="viewerBasenameSuffix",
                       help="Suffix for basename of viewer files")
+    parser.add_option("--viewer-validation-messages",
+                      dest="validationMessages",
+                      action="store_true",
+                      help="Include validation messages in the viewer")
+    # Force logging to use a buffer so that messages are retained and can be
+    # retrieved for inclusion with the viewer.
+    parser.add_option("--logToBuffer", action="store_true", dest="logToBuffer", default=True, help=argparse.SUPPRESS)
 
 def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
     # extend XBRL-loaded run processing for this option
@@ -81,7 +86,8 @@ def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
         if out:
             viewerBuilder = IXBRLViewerBuilder(modelXbrl, basenameSuffix=options.viewerBasenameSuffix)
             iv = viewerBuilder.createViewer(scriptUrl=options.viewerURL, useStubViewer=options.useStubViewer)
-            iv.save(out, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
+            if iv is not None:
+                iv.save(out, outBasenameSuffix=VIEWER_BASENAME_SUFFIX, outzipFilePrefix=VIEWER_BASENAME_SUFFIX)
     except IXBRLViewerBuilderError as ex:
         print(ex.message)
     except Exception as ex:
@@ -101,7 +107,8 @@ def iXBRLViewerMenuCommand(cntlr):
     if dialog.accepted and dialog.filename():
         viewerBuilder = IXBRLViewerBuilder(modelXbrl)
         iv = viewerBuilder.createViewer(scriptUrl=dialog.scriptUrl())
-        iv.save(dialog.filename())
+        if iv is not None:
+            iv.save(dialog.filename())
 
 
 def iXBRLViewerToolsMenuExtender(cntlr, menu, *args, **kwargs):
