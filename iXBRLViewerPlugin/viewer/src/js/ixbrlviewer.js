@@ -17,6 +17,7 @@ import $ from 'jquery'
 import { iXBRLReport } from "./report.js";
 import { Viewer } from "./viewer.js";
 import { Inspector } from "./inspector.js";
+import { getURLVars } from "./util.js";
 
 export function iXBRLViewer(options) {
     this.options = options || {};
@@ -223,7 +224,7 @@ iXBRLViewer.prototype.load = function () {
 
                         /* Focus on fact specified in URL fragment, if any */
                         inspector.handleFactDeepLink();
-                        if (iv.options.showValidationWarningOnStart) {
+                        if (iv.options.showValidationWarningOnStart && !("nopopup" in getURLVars())) {
                             inspector.showValidationWarning();
                         }
                     });
