@@ -872,7 +872,7 @@ Inspector.prototype.showValidationReport = function () {
 }
 
 Inspector.prototype.setupValidationReportIcon = function () {
-    if (this._report.hasValidationErrors()) {
+    if (this._report.hasValidationWarnings()) {
         $("#ixv .validation-warning").show().on("click", () => this.showValidationReport());
     }
 }
