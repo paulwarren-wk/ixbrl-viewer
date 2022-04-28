@@ -259,33 +259,44 @@ Viewer.prototype._preProcessiXBRL = function(n, docIndex, inHidden) {
     }
     else if(n.nodeType == 1) {
         // Handle SEC/ESEF links-to-hidden
-        if (n.hasAttribute('style')) {
-            const re = /(?:^|\s|;)-(?:sec|esef)-ix-hidden:\s*([^\s;]+)/;
-            var m = n.getAttribute('style').match(re);
-            if (m) {
-                const id = m[1];
-                node = $(n);
-                node.addClass("ixbrl-element").data('ivid', [id]);
-                this._docOrderIDIndex.push(id);
-                /* We may have already seen the corresponding ix element in the hidden
-                 * section */
-                var ixn = this._ixNodeMap[id];
-                if (ixn) {
-                    /* ... if so, update the node and docIndex so we can navigate to it */
-                    ixn.wrapperNode = node;
-                    ixn.docIndex = docIndex;
-                }
-                else {
-                    this._ixNodeMap[id] = new IXNode(id, node, docIndex);
-                }
+        const id = this._getIXHiddenLinkStyle(n);
+        if (id !== null) {
+            node = $(n);
+            node.addClass("ixbrl-element").data('ivid', [id]);
+            this._docOrderIDIndex.push(id);
+            /* We may have already seen the corresponding ix element in the hidden
+             * section */
+            var ixn = this._ixNodeMap[id];
+            if (ixn) {
+                /* ... if so, update the node and docIndex so we can navigate to it */
+                ixn.wrapperNode = node;
+                ixn.docIndex = docIndex;
+            }
+            else {
+                this._ixNodeMap[id] = new IXNode(id, node, docIndex);
             }
         }
         if (name == 'A') {
             this._updateLink(n);
         }
     }
-    for (var i=0; i < n.childNodes.length; i++) {
-        this._preProcessiXBRL(n.childNodes[i], docIndex, inHidden);
+    this._preProcessChildNodes(n, docIndex, inHidden);
+}
+
+Viewer.prototype._getIXHiddenLinkStyle = function(domNode) {
+    if (domNode.hasAttribute('style')) {
+        const re = /(?:^|\s|;)-(?:sec|esef)-ix-hidden:\s*([^\s;]+)/;
+        const m = domNode.getAttribute('style').match(re);
+        if (m) {
+            return m[1];
+        }
+    }
+    return null;
+}
+
+Viewer.prototype._preProcessChildNodes = function (domNode, docIndex, inHidden) {
+    for (const childNode of domNode.childNodes) {
+        this._preProcessiXBRL(childNode, docIndex, inHidden);
     }
 }
 
@@ -362,6 +373,13 @@ Viewer.prototype.selectPrevTag = function (currentFact) {
     this._selectAdjacentTag(-1, currentFact);
 }
 
+
+Viewer.prototype.isScrollableElement = function (domNode) {
+    const overflow = $(domNode).css('overflow-y');
+    return (domNode.clientHeight > 0 && domNode.clientHeight < domNode.scrollHeight 
+        && (overflow == "auto" || overflow == 'scroll' || domNode.nodeName.toUpperCase() == 'HTML'));
+}
+
 /* Make the specified element visible by scrolling any scrollable ancestors */
 Viewer.prototype.showElement = function(e) {
     /* offsetTop gives the position relative to the nearest positioned element.
@@ -381,9 +399,7 @@ Viewer.prototype.showElement = function(e) {
             lastPositionedElement = ee;
             childOffset += ee.offsetTop;
         }
-        const overflow = $(ee).css('overflow-y');
-        if (ee.clientHeight > 0 && ee.clientHeight < ee.scrollHeight 
-            && (overflow == "auto" || overflow == 'scroll' || ee.nodeName.toUpperCase() == 'HTML')) {
+        if (this.isScrollableElement(ee)) {
             /* This is a scrollable element.  Calculate the position of the
              * child we're trying to show within it. */
             var childPosition = childOffset - ee.offsetTop;
