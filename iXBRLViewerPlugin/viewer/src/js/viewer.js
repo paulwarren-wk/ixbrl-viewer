@@ -376,8 +376,10 @@ Viewer.prototype.selectPrevTag = function (currentFact) {
 
 Viewer.prototype.isScrollableElement = function (domNode) {
     const overflow = $(domNode).css('overflow-y');
+    /* Depending on how the iframe is constructed, it may be the html or body
+     * element that is scrollable */
     return (domNode.clientHeight > 0 && domNode.clientHeight < domNode.scrollHeight 
-        && (overflow == "auto" || overflow == 'scroll' || domNode.nodeName.toUpperCase() == 'HTML'));
+        && (overflow == "auto" || overflow == 'scroll' || ['HTML', 'BODY'].includes(domNode.nodeName.toUpperCase())));
 }
 
 /* Make the specified element visible by scrolling any scrollable ancestors */
