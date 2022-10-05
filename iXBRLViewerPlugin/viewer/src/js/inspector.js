@@ -100,6 +100,9 @@ Inspector.prototype.initialize = function (report, viewer) {
                 $(this).closest("#inspector").removeClass("search-mode").removeClass("outline-mode");
             });
             $(".popup-trigger").hover(function () { $(this).find(".popup-content").show() }, function () { $(this).find(".popup-content").hide() });
+            $("#inspector").on("click", ".clipboard-copy", function () {
+                navigator.clipboard.writeText($(this).data("cb-text"));
+            });
             inspector._toolbarMenu = new Menu($("#toolbar-highlight-menu"));
             inspector.buildToolbarHighlightMenu();
 
@@ -649,7 +652,14 @@ Inspector.prototype._selectionSummaryAccordian = function() {
             factHTML = $(require('../html/fact-details.html')); 
             $('.std-label', factHTML).text(fact.getLabelOrName("std", true));
             $('.documentation', factHTML).text(fact.getLabel("doc") || "");
-            $('tr.concept td', factHTML).text(fact.conceptName());
+            $('tr.concept td', factHTML)
+                .find('.text')
+                    .text(fact.conceptName())
+                    .attr("title", fact.conceptName())
+                .end()
+                .find('.clipboard-copy')
+                    .data('cb-text', fact.conceptName())
+                .end();
             $('tr.period td', factHTML)
                 .text(fact.periodString());
             if (fact.isNumeric()) {
