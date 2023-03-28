@@ -241,6 +241,8 @@ iXBRLViewer.prototype.load = function () {
                             if (iv.options.showValidationWarningOnStart) {
                                 inspector.showValidationWarning();
                             }
+                            viewer.postLoadAsync();
+                            inspector.postLoadAsync();
                         })
                         .catch(err => {
                             if (err instanceof DocumentTooLargeError) {
