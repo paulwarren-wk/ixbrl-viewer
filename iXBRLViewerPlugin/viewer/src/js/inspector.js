@@ -182,7 +182,7 @@ export class Inspector {
             this._optionsMenu.addCheckboxGroup(this._report.availableLanguages(), this._report.languageNames(), dl, (lang) => { this.setLanguage(lang); this.update() }, "select-language");
             this.setLanguage(dl);
             if (this._report.filingDocuments()) {
-                this._optionsMenu.addDownloadButton("Download filing documents", this._report.filingDocuments())
+                this._optionsMenu.addDownloadButton("Download report", this._report.filingDocuments())
             }
         }
         this._iv.callPluginMethod("extendDisplayOptionsMenu", this._optionsMenu);
