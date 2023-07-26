@@ -1,15 +1,27 @@
-FROM node:16-slim as node-build
+FROM node:20.5.0-bullseye-slim as node-build
 
 ARG NPM_CONFIG__AUTH
 ARG NPM_CONFIG_REGISTRY=https://workivaeast.jfrog.io/workivaeast/api/npm/npm-prod/
 ARG NPM_CONFIG_ALWAYS_AUTH=true
 ARG GIT_TAG
 
+RUN apt update -y && \
+    apt install -y \
+        git && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN reg=$(echo "$NPM_CONFIG_REGISTRY" | cut -d ":" -f 2) && \
+    echo "$reg:_auth = $NPM_CONFIG__AUTH" > /.npmrc && \
+    echo "registry = $NPM_CONFIG_REGISTRY" >> /.npmrc && \
+    echo "always-auth = true" >> /.npmrc
+ARG NPM_CONFIG_USERCONFIG=/.npmrc
+
+
 WORKDIR /build/
 
-COPY package.json /build/
-RUN npm update --location=global && \
-    npm install --include=dev
+COPY package.json package-lock.json /build/
+RUN npm update -g npm && \
+    npm ci
 
 COPY . /build/
 
@@ -38,32 +50,31 @@ ARG BUILD_ARTIFACTS_CDN=/static_release/assets.tar.gz
 RUN npm pack
 ARG BUILD_ARTIFACTS_NPM=/build/*.tgz
 
-FROM python:3.9-slim as python-build
+FROM python:3.11.4-slim-bullseye as python-build
 
 ARG PIP_INDEX_URL
-ARG GIT_TAG
 
 WORKDIR /build/
 
-COPY requirements*.txt /build/
-RUN pip install -U pip setuptools && \
-    pip install -r requirements-dev.txt
+RUN apt update -y && \
+    apt install -y \
+        git && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY . /build/
-COPY --from=node-build /build/iXBRLViewerPlugin/viewer/dist /build/iXBRLViewerPlugin/viewer/dist
+RUN pip install -U pip setuptools && \
+    pip install .[dev]
 
-# The following command replaces the version string in setup.py
-ARG VERSION=${GIT_TAG:-0.0.0}
-RUN sed -i "s/version='0\.0\.0'/version='$VERSION'/" setup.py
+COPY --from=node-build /build/iXBRLViewerPlugin/viewer/dist /build/iXBRLViewerPlugin/viewer/dist
 
 # python tests
 ARG BUILD_ARTIFACTS_TEST=/test_reports/*.xml
 RUN mkdir /test_reports
-RUN nosetests --with-xunit --xunit-file=/test_reports/results.xml --cover-html tests.unit_tests
+RUN nose2 --plugin nose2.plugins.junitxml --junit-xml-path ../test_reports/results.xml
 
 # pypi package creation
 ARG BUILD_ARTIFACTS_PYPI=/build/dist/*.tar.gz
-RUN python setup.py sdist
+RUN pip install build && python -m build
 
 ARG BUILD_ARTIFACTS_AUDIT=/audit/*
 RUN mkdir /audit/

@@ -1,19 +1,7 @@
-// Copyright 2019 Workiva Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// See COPYRIGHT.md for copyright information
 
-import dateFormat from "dateformat"
 import moment from "moment";
+import Decimal from "decimal.js";
 
 /* 
  * Takes a moment.js oject and converts it to a human readable date, or date
@@ -26,7 +14,7 @@ import moment from "moment";
  *
  */
 export function momentToHuman(d, adjust) {
-    if (d.hours() + d.minutes() + d.seconds() == 0) { 
+    if (d.hours() + d.minutes() + d.seconds() === 0) { 
         if (adjust) {
             d = d.clone().subtract(1, 'day');
         }
@@ -40,8 +28,8 @@ export function momentToHuman(d, adjust) {
  * decimal places.
  */
 export function formatNumber(value, decimals) {
-    const n = Number(value);
-    const s = decimals === undefined ? n.toString() : n.toFixed(Math.max(0, decimals));
+    const n = Decimal(value);
+    const s = decimals === undefined ? n.toFixed() : n.toFixed(Math.max(0, decimals));
     const parts = s.split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return parts.join('.');
@@ -51,46 +39,42 @@ export function formatNumber(value, decimals) {
  * Takes a string phrase and breaks it into separate phrases no bigger than
  * 'maxwidth'. breaks are made at complete words.
  */
-export function wrapLabel(str, maxwidth){
-    var sections = [];
-    var words = str.split(" ");
-    var temp = "";
+export function wrapLabel(str, maxwidth) {
+    const sections = [];
+    const words = str.split(" ");
+    let temp = "";
 
-    words.forEach(function(item, index){
-        if(temp.length > 0)
-        {
-            var concat = temp + ' ' + item;
+    words.forEach((item, index) => {
+        if (temp.length > 0) {
+            const concat = temp + ' ' + item;
 
-            if(concat.length > maxwidth){
+            if (concat.length > maxwidth){
                 sections.push(temp);
                 temp = "";
             }
-            else{
-                if(index == (words.length-1))
-                {
+            else {
+                if (index === (words.length-1)) {
                     sections.push(concat);
                     return;
                 }
-                else{
+                else {
                     temp = concat;
                     return;
                 }
             }
         }
 
-        if(index == (words.length-1))
-        {
+        if (index === (words.length-1)) {
             sections.push(item);
             return;
         }
 
-        if(item.length < maxwidth) {
+        if (item.length < maxwidth) {
             temp = item;
         }
         else {
             sections.push(item);
         }
-
     });
     return sections;
 }
@@ -100,8 +84,8 @@ export function wrapLabel(str, maxwidth){
  * adding an ellipsis if the label is actually shortened.
  */
 export function truncateLabel(label, length) {
-    var vv = wrapLabel(label, length);
-    var t = vv[0];
+    let vv = wrapLabel(label, length);
+    let t = vv[0];
     if (vv.length > 1) {
         t += ' \u2026';
     }
@@ -125,7 +109,7 @@ export function xbrlDateToMoment(dateString) {
      */
     dateString = dateString.replace(
         /^(\d{4,}-\d{2}-\d{2})(?!T|$)/, 
-        function(match, $1) { return $1 + 'T00:00:00' }
+        (match, $1) => $1 + 'T00:00:00'
     );
     return moment.utc(dateString);
 }
@@ -156,3 +140,27 @@ export function getURLVars() {
     return vars;
 }
 
+export function runGenerator(generator) {
+    function resume() {
+        const res = generator.next();
+        if (!res.done) {
+            setTimeout(resume, 0);
+        }
+        return;
+    }
+    setTimeout(resume, 0);
+}
+
+/**
+ * Word-by-word title-casing that preserves existing uppercase characters
+ * @param  {String} text  Text to title-case
+ * @return {String} Title-cased string
+ */
+export function titleCase(text) {
+    if (!text) return text;
+    return text.split(' ').map(word => {
+        return Array.from(word)
+                .map((c, i) => (i === 0) ? c.toUpperCase() : c)
+                .join('');
+    }).join(' ');
+}

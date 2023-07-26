@@ -1,24 +1,14 @@
-// Copyright 2019 Workiva Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// See COPYRIGHT.md for copyright information
 
 import { Fact } from "./fact.js"
 import { Footnote } from "./footnote.js"
 import { QName } from "./qname.js"
 import { Concept } from "./concept.js";
+import { Unit } from "./unit";
 import { ViewerOptions } from "./viewerOptions.js";
-import { setDefault } from "./util.js";
+import { setDefault, titleCase } from "./util.js";
 import $ from 'jquery'
+import i18next from "i18next";
 
 export function iXBRLReport (data) {
     this.data = data;
@@ -44,7 +34,7 @@ iXBRLReport.prototype._initialize = function () {
     var fnorder = Object.keys(this._ixNodeMap).filter((id) => this._ixNodeMap[id].footnote);
     fnorder.sort((a,b) => this._ixNodeMap[a].docOrderindex - this._ixNodeMap[b].docOrderindex);
 
-    // Create Fact objects for all facts.  
+    // Create Fact objects for all facts.
     for (const id in this.data.facts) {
         this._items[id] = new Fact(this, id);
     }
@@ -67,6 +57,34 @@ iXBRLReport.prototype._initialize = function () {
             fn.addLinkedFact(f);
         });
     }
+}
+
+iXBRLReport.prototype.isCalculationContributor = function(c) {
+    if (this._calculationContributors === undefined) {
+        if (this.data.rels?.calc) {
+            this._calculationContributors = new Set(Object.values(this.data.rels.calc).flatMap(calculations => {
+                return Object.values(calculations).flatMap(contributors => {
+                    return contributors.map(c => c.t);
+                });
+            }));
+        } else {
+            this._calculationContributors = new Set();
+        }
+    }
+    return this._calculationContributors.has(c);
+}
+
+iXBRLReport.prototype.isCalculationSummation = function(c) {
+    if (this._calculationSummations === undefined) {
+        if (this.data.rels?.calc) {
+            this._calculationSummations = new Set(Object.values(this.data.rels.calc).flatMap(calculations => {
+                return Object.keys(calculations);
+            }));
+        } else {
+            this._calculationSummations = new Set();
+        }
+    }
+    return this._calculationSummations.has(c);
 }
 
 iXBRLReport.prototype.getLabel = function(c, rolePrefix, showPrefix) {
@@ -134,19 +152,80 @@ iXBRLReport.prototype.getItemById = function(id) {
     return this._items[id];
 }
 
-
 iXBRLReport.prototype.getIXNodeForItemId = function(id) {
     return this._ixNodeMap[id] || {};
 }
 
 iXBRLReport.prototype.facts = function() {
-    var allItems = [];
-    $.each(this.data.facts, (id, f) => allItems.push(this.getItemById(id)));
-    return allItems;
+    return Object.keys(this.data.facts).map(id => this.getItemById(id));
+}
+
+iXBRLReport.prototype.filingDocuments = function() {
+    return this.data.filingDocuments;
 }
 
 iXBRLReport.prototype.prefixMap = function() {
     return this.data.prefixes;
+}
+
+iXBRLReport.prototype.getUsedPrefixes = function() {
+    if (this._usedPrefixes === undefined) {
+        this._usedPrefixes = new Set(Object.values(this._items)
+                .filter(f => f instanceof Fact)
+                .map(f => f.getConceptPrefix()));
+    }
+    return this._usedPrefixes;
+}
+
+/**
+ * Returns a set of OIM format unit strings used by facts on this report. Lazy-loaded.
+ * @return {Set[String]} Set of OIM format unit strings
+ */
+iXBRLReport.prototype.getUsedUnits = function() {
+    if (this._usedUnits === undefined) {
+        this._usedUnits = new Set(Object.values(this._items)
+                .filter(f => f instanceof Fact)
+                .map(f => f.unit()?.value())
+                .filter(f => f)
+                .sort());
+    }
+    return this._usedUnits;
+}
+
+/**
+ * Returns details about the provided unit. Lazy-loaded once per unit.
+ * @param  {String} unitKey  Unit in OIM format
+ * @return {Unit}  Unit instance corresponding with provided key
+ */
+iXBRLReport.prototype.getUnit = function(unitKey) {
+    if (this._unitsMap === undefined) {
+        this._unitsMap = {};
+    }
+    if (this._unitsMap[unitKey] === undefined) {
+        this._unitsMap[unitKey] = new Unit(this, unitKey)
+    }
+    return this._unitsMap[unitKey];
+}
+
+iXBRLReport.prototype.getUsedScalesMap = function() {
+    // Do not lazy load. This is language-dependent so needs to re-evaluate after language changes.
+    const usedScalesMap = {};
+    Object.values(this._items)
+        .filter(f => f instanceof Fact)
+        .forEach(fact => {
+            const scale = fact.scale();
+            if (scale !== null && scale !== undefined) {
+                if (!(scale in usedScalesMap)) {
+                    usedScalesMap[scale] = new Set();
+                }
+                const labels = usedScalesMap[scale];
+                const label = titleCase(fact.getScaleLabel(scale));
+                if (label && !labels.has(label)) {
+                    labels.add(label);
+                }
+            }
+        });
+    return usedScalesMap;
 }
 
 iXBRLReport.prototype.roleMap = function() {
@@ -302,6 +381,13 @@ iXBRLReport.prototype.getRoleLabel = function(rolePrefix, viewerOptions) {
     return this.roleMap()[rolePrefix];
 }
 
+iXBRLReport.prototype.localDocuments = function() {
+    if (this.data.localDocs === undefined) {
+        return {}
+    }
+    return this.data.localDocs;
+}
+
 iXBRLReport.prototype.documentSetFiles = function() {
     if (this.data.docSetFiles === undefined) {
         return []
@@ -310,7 +396,7 @@ iXBRLReport.prototype.documentSetFiles = function() {
 }
 
 iXBRLReport.prototype.isDocumentSet = function() {
-    return this.data.docSetFiles !== undefined;
+    return this.documentSetFiles().length > 1;
 }
 
 iXBRLReport.prototype.usesAnchoring = function() {
@@ -327,4 +413,15 @@ iXBRLReport.prototype.hasValidationWarnings = function() {
 
 iXBRLReport.prototype.hasValidationInconsistencies = function() {
     return this.data.validation !== undefined && this.data.validation.filter(i => i.sev == 'INCONSISTENCY').length > 0;
+}
+
+iXBRLReport.prototype.getScaleLabel = function(scale, isMonetaryValue, currency=null) {
+    var label = i18next.t(`scale.${scale}`, {defaultValue:"noName"});
+    if (isMonetaryValue && scale === -2) {
+        label = i18next.t(`currencies:cents${currency}`, {defaultValue: label});
+    }
+    if (label === "noName") {
+        return null;
+    }
+    return label;
 }

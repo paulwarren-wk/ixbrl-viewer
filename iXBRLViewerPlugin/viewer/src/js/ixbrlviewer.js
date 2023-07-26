@@ -1,30 +1,23 @@
-// Copyright 2019 Workiva Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// See COPYRIGHT.md for copyright information
 
 import interact from 'interactjs'
 import $ from 'jquery'
 import { iXBRLReport } from "./report.js";
-import { Viewer } from "./viewer.js";
+import { Viewer, DocumentTooLargeError } from "./viewer.js";
 import { Inspector } from "./inspector.js";
 import { getURLVars } from "./util.js";
 
 export function iXBRLViewer(options) {
-    this.options = options || {};
     this._plugins = [];
     this.inspector = new Inspector(this);
     this.viewer = null;
-    this.options = options || {};
+    options = options || {};
+    const defaults = {
+        continuationElementLimit: 10000,
+        reviewMode: false,
+        showValidationWarningOnStart: false,
+    }
+    this.options = {...defaults, ...options};
 }
 
 /*
@@ -88,7 +81,7 @@ iXBRLViewer.prototype.pluginPromise = function (methodName, ...args) {
 iXBRLViewer.prototype._loadInspectorHTML = function () {
     /* Insert HTML and CSS styles into body */
     $(require('../html/inspector.html')).prependTo('body');
-    var inspector_css = require('css-loader!less-loader!../less/inspector.less').toString(); 
+    var inspector_css = require('css-loader!../less/inspector.less').toString(); 
     $('<style id="ixv-style"></style>')
         .prop("type", "text/css")
         .text(inspector_css)
@@ -98,6 +91,13 @@ iXBRLViewer.prototype._loadInspectorHTML = function () {
         .attr('href', require('../img/favicon.ico'))
         .appendTo('head');
     */
+
+    try {
+        $('.inspector-foot .version').text(__VERSION__);
+    }
+    catch (e) {
+        // ReferenceError if __VERSION__ not defined
+    }
 }
 
 iXBRLViewer.prototype._reparentDocument = function () {
@@ -129,6 +129,9 @@ iXBRLViewer.prototype._reparentDocument = function () {
      * the body tag in an HTML DOM, so move them so that they are */
     $('body script').appendTo($('body'));
     const iframeBody = $(iframe).contents().find('body');
+    if (this.options.reviewMode) {
+        iframeBody.addClass('review');
+    }
     $('body').children().not("script").not('#ixv').not(iframeContainer).appendTo(iframeBody);
 
     /* Move all attributes on the body tag to the new body */
@@ -178,13 +181,15 @@ iXBRLViewer.prototype.load = function () {
             $('#ixv .loader').removeClass("loading");
             return;
         }
-        var report = new iXBRLReport(JSON.parse(taxonomyData));
-        if (report.isDocumentSet()) {
-            var ds = report.documentSetFiles();
-            for (var i = stubViewer ? 0 : 1; i < ds.length; i++) {
-                var iframe = $("<iframe />").attr("src", ds[i]).appendTo("#ixv #iframe-container");
-                iframes = iframes.add(iframe);
-            }
+        const report = new iXBRLReport(JSON.parse(taxonomyData));
+        const ds = report.documentSetFiles();
+        var hasExternalIframe = false;
+        for (var i = stubViewer ? 0 : 1; i < ds.length; i++) {
+            const iframe = $("<iframe />").attr("src", ds[i]).appendTo("#ixv #iframe-container");
+            iframes = iframes.add(iframe);
+            hasExternalIframe = true;
+        }
+        if (hasExternalIframe) {
             iv._checkDocumentSetBrowserSupport();
         }
 
@@ -237,9 +242,21 @@ iXBRLViewer.prototype.load = function () {
                             if (iv.options.showValidationWarningOnStart && !("nopopup" in getURLVars())) {
                                 inspector.showValidationWarning();
                             }
+                            viewer.postLoadAsync();
+                            inspector.postLoadAsync();
+                        })
+                        .catch(err => {
+                            if (err instanceof DocumentTooLargeError) {
+                                $('#ixv .loader').remove();
+                                $('#inspector').addClass('failed-to-load');
+                            }
+                            else {
+                                throw err;
+                            }
+
                         });
                 }
-            });
+            }, 250);
         });
     }, 0);
 }
@@ -253,6 +270,7 @@ iXBRLViewer.prototype.setProgress = function (msg) {
          * https://bugs.chromium.org/p/chromium/issues/detail?id=675795 
          */
         window.requestAnimationFrame(function () {
+            console.log(`%c [Progress] ${msg} `, 'background: #77d1c8; color: black;');
             $('#ixv .loader .text').text(msg);
             window.requestAnimationFrame(function () {
                 resolve();

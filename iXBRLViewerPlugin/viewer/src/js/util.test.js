@@ -1,18 +1,6 @@
-// Copyright 2019 Workiva Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// See COPYRIGHT.md for copyright information
 
-import { xbrlDateToMoment, momentToHuman, formatNumber, wrapLabel, escapeRegex } from "./util.js"
+import { xbrlDateToMoment, momentToHuman, formatNumber, wrapLabel, escapeRegex, truncateLabel } from "./util.js"
 import moment from 'moment';
 import "./moment-jest.js";
 
@@ -96,6 +84,18 @@ describe("formatNumber", () => {
     test("Format number, add some decimals", () => {
         expect(formatNumber(12345678,4)).toBe("12,345,678.0000")
     });
+
+    test("Format decimal with large number of digits", () => {
+        expect(formatNumber("10000000000.00000003", undefined)).toBe("10,000,000,000.00000003")
+    });
+
+    test("Format decimal with large number of digits", () => {
+        expect(formatNumber("10000000000.000000030", undefined)).toBe("10,000,000,000.00000003")
+    });
+
+    test("Format decimal with large number of digits", () => {
+        expect(formatNumber("10000000000.000000030", 10)).toBe("10,000,000,000.0000000300")
+    });
 });
 
 describe("wrapLabel", () => {
@@ -124,6 +124,17 @@ describe("wrapLabel", () => {
             "trailing",
             "space "
         ])
+    });
+});
+
+describe("truncateLabel", () => {
+    test("Truncate at width 10", () => {
+        expect(truncateLabel("The cat sat on the mat.  My hovercraft is full of eels.", 10)).toEqual(
+            "The cat \u2026"
+        );
+        expect(truncateLabel("The cat", 10)).toEqual(
+            "The cat"
+        )
     });
 });
 
