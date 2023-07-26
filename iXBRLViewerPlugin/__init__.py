@@ -52,15 +52,6 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       dest="viewerURL",
                       default=DEFAULT_VIEWER_PATH,
                       help="Specify the URL to ixbrlviewer.js")
-    parser.add_option("--use-stub-viewer",
-                      action="store_true",
-                      dest="useStubViewer",
-                      help="Use stub viewer for faster loading of inspector")
-    parser.add_option("--viewer-suffix",
-                      action="store",
-                      default="",
-                      dest="viewerBasenameSuffix",
-                      help="Suffix for basename of viewer files")
     parser.add_option("--viewer-validation-messages",
                       dest="validationMessages",
                       action="store_true",

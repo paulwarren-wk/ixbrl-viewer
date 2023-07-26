@@ -218,10 +218,6 @@ class IXBRLViewerBuilder:
                 rels.setdefault(self.roleMap.getPrefix(arcrole),{})[self.roleMap.getPrefix(ELR)] = rr
         return rels
 
-    def getStubDocument(self):
-        with open(os.path.join(os.path.dirname(__file__),"stubviewer.html")) as fin:
-            return etree.parse(fin)
-
     def validationErrors(self):
         dts = self.dts
 
@@ -398,7 +394,6 @@ class IXBRLViewerBuilder:
         self.taxonomyData["prefixes"] = self.nsmap.prefixmap
         self.taxonomyData["roles"] = self.roleMap.prefixmap
         self.taxonomyData["rels"] = self.getRelationships()
-        self.taxonomyData["validation"] = self.validationErrors()
 
         if showValidations:
             self.taxonomyData["validation"] = self.validationErrors()
@@ -425,13 +420,6 @@ class IXBRLViewerBuilder:
             xmlDocument = self.getStubDocument()
             filename = self.outputFilename(os.path.basename(dts.modelDocument.filepath))
             docSetFiles = [ filename ]
-            iv.addFile(iXBRLViewerFile("ixbrlviewer.html", xmlDocument))
-            iv.addFile(iXBRLViewerFile(filename, dts.modelDocument.xmlDocument))
-
-        elif useStubViewer:
-            xmlDocument = self.getStubDocument()
-            filename = self.outputFilename(os.path.basename(dts.modelDocument.filepath))
-            self.taxonomyData["docSetFiles"] = [ filename ]
             iv.addFile(iXBRLViewerFile("ixbrlviewer.html", xmlDocument))
             iv.addFile(iXBRLViewerFile(filename, dts.modelDocument.xmlDocument))
 
