@@ -8,13 +8,13 @@ import { Inspector } from "./inspector.js";
 import { getURLVars } from "./util.js";
 
 export function iXBRLViewer(options) {
+    this._features = new Set();
     this._plugins = [];
     this.inspector = new Inspector(this);
     this.viewer = null;
     options = options || {};
     const defaults = {
         continuationElementLimit: 10000,
-        reviewMode: false,
         showValidationWarningOnStart: false,
     }
     this.options = {...defaults, ...options};
@@ -78,6 +78,43 @@ iXBRLViewer.prototype.pluginPromise = function (methodName, ...args) {
     });
 }
 
+iXBRLViewer.prototype.setFeatures = function(featureNames, queryString) {
+    const iv = this;
+    const featureMap = {}
+    // Enable given features initially
+    featureNames.forEach(f => {
+        featureMap[f] = true;
+    });
+
+    // Enable/disable features based on query string
+    const urlParams = new URLSearchParams(queryString);
+    urlParams.forEach((value, key) => {
+        // Do nothing if feature has already been disabled by query
+        if (featureMap[key] !== false) {
+            // Disable feature if value is exactly 'false', anything else enables the feature
+            featureMap[key] = value !== 'false';
+        }
+    });
+
+    // Gather results in _features set
+    if (iv._features.size > 0) {
+        iv._features = new Set();
+    }
+    for (const [feature, enabled] of Object.entries(featureMap)) {
+        if (enabled) {
+            iv._features.add(feature);
+        }
+    }
+}
+
+iXBRLViewer.prototype.isFeatureEnabled = function (featureName) {
+    return this._features.has(featureName);
+}
+
+iXBRLViewer.prototype.isReviewModeEnabled = function () {
+    return this.isFeatureEnabled('review');
+}
+
 iXBRLViewer.prototype._loadInspectorHTML = function () {
     /* Insert HTML and CSS styles into body */
     $(require('../html/inspector.html')).prependTo('body');
@@ -129,9 +166,6 @@ iXBRLViewer.prototype._reparentDocument = function () {
      * the body tag in an HTML DOM, so move them so that they are */
     $('body script').appendTo($('body'));
     const iframeBody = $(iframe).contents().find('body');
-    if (this.options.reviewMode) {
-        iframeBody.addClass('review');
-    }
     $('body').children().not("script").not('#ixv').not(iframeContainer).appendTo(iframeBody);
 
     /* Move all attributes on the body tag to the new body */
@@ -164,7 +198,14 @@ iXBRLViewer.prototype._checkDocumentSetBrowserSupport = function () {
 iXBRLViewer.prototype.load = function () {
     var iv = this;
     var inspector = this.inspector;
-    setTimeout(function() {
+
+    setTimeout(function () {
+
+        // We need to parse JSON first so that we can determine feature enablement before loading begins.
+        const taxonomyData = iv._getTaxonomyData();
+        const parsedTaxonomyData = taxonomyData && JSON.parse(taxonomyData);
+        iv.setFeatures((parsedTaxonomyData && parsedTaxonomyData["features"]) || [], window.location.search);
+
         iv._loadInspectorHTML();
         var iframes;
         const stubViewer = $('body').hasClass('ixv-stub-viewer');
@@ -174,14 +215,12 @@ iXBRLViewer.prototype.load = function () {
         else {
             iframes = $();
         }
-
-        var taxonomyData = iv._getTaxonomyData();
-        if (taxonomyData === null) {
+        if (parsedTaxonomyData === null) {
             $('#ixv .loader .text').text("Error: Could not find viewer data");
             $('#ixv .loader').removeClass("loading");
             return;
         }
-        const report = new iXBRLReport(JSON.parse(taxonomyData));
+        const report = new iXBRLReport(parsedTaxonomyData);
         const ds = report.documentSetFiles();
         var hasExternalIframe = false;
         for (var i = stubViewer ? 0 : 1; i < ds.length; i++) {

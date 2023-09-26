@@ -156,7 +156,15 @@ export class Inspector {
 
     handleMessage(event) {
         const jsonString = event.originalEvent.data;
-        const data = JSON.parse(jsonString);
+        let data;
+        try {
+            data = JSON.parse(jsonString);
+        }
+        catch (e) {
+            // Silently ignore any non-JSON messages as write-excel-file sends
+            // messages to itself when exporting files.
+            return;
+        }
 
         if (data.task == 'SHOW_FACT') {
             this.selectItem(data.factId);
@@ -192,7 +200,7 @@ export class Inspector {
         const iv = this._iv;
         this._toolbarMenu.reset();
         this._toolbarMenu.addCheckboxItem(i18next.t("toolbar.xbrlElements"), (checked) => this.highlightAllTags(checked), "highlight-tags", null, this._iv.options.highlightTagsOnStartup);
-        if (iv.options.reviewMode) {
+        if (iv.isReviewModeEnabled()) {
             this._toolbarMenu.addCheckboxItem("Untagged Numbers", function (checked) {
                 const body = iv.viewer.contents().find("body");
                 if (checked) {
@@ -219,7 +227,7 @@ export class Inspector {
     buildHighlightKey() {
         $(".highlight-key .items").empty();
         let key;
-        if (this._iv.options.reviewMode) {
+        if (this._iv.isReviewModeEnabled()) {
             key = [
                 "XBRL Elements",
                 "Untagged Numbers",
@@ -522,12 +530,14 @@ export class Inspector {
         } = this.summary.getLocalDocuments();
 
         const summaryFilesContent = summaryDom.find(".files-summary");
+        let visibleItems = 0;
 
         function insertFileSummary(docs, classSelector) {
             if (docs.length === 0) {
                 summaryFilesContent.find(classSelector).hide();
             } else {
                 const ul = summaryFilesContent.find(classSelector + ' ul')
+                visibleItems += 1;
                 for (const doc of docs) {
                     ul.append($("<li></li>").text(doc));
                 }
@@ -542,6 +552,9 @@ export class Inspector {
         insertFileSummary(labelLinkbase, ".label-links");
         insertFileSummary(refLinkbase, ".ref-links");
         insertFileSummary(unrecognizedLinkbase, ".other-links");
+        if (visibleItems == 0) {
+            summaryFilesContent.hide();
+        }
     };
 
     createOutline() {

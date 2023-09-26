@@ -15,7 +15,7 @@ from copy import deepcopy
 from typing import Optional, Union
 
 import pycountry
-from arelle import XbrlConst
+from arelle import ModelXbrl, XbrlConst
 from arelle.ModelDocument import Type
 from arelle.ModelRelationshipSet import ModelRelationshipSet
 from arelle.ModelValue import QName, INVALIDixVALUE
@@ -23,7 +23,7 @@ from arelle.UrlUtil import isHttpUrl
 from arelle.ValidateXbrlCalcs import inferredDecimals
 from lxml import etree
 
-from iXBRLViewerPlugin.constants import DEFAULT_VIEWER_PATH
+from .constants import DEFAULT_OUTPUT_NAME, DEFAULT_VIEWER_PATH, FEATURE_CONFIGS
 from .xhtmlserialize import XHTMLSerializer
 
 
@@ -82,7 +82,7 @@ class IXBRLViewerBuilderError(Exception):
 
 class IXBRLViewerBuilder:
 
-    def __init__(self, dts, basenameSuffix = ''):
+    def __init__(self, dts: ModelXbrl, basenameSuffix: str = ''):
         self.nsmap = NamespaceMap()
         self.roleMap = NamespaceMap()
         self.dts = dts
@@ -90,9 +90,18 @@ class IXBRLViewerBuilder:
             "concepts": {},
             "languages": {},
             "facts": {},
+            "features": [],
         }
         self.footnoteRelationshipSet = ModelRelationshipSet(dts, "XBRL-footnotes")
         self.basenameSuffix = basenameSuffix
+
+    def enableFeature(self, featureName: str):
+        if featureName in self.taxonomyData["features"]:
+            return
+        featureNames = [c.key for c in FEATURE_CONFIGS]
+        assert featureName in featureNames, \
+            f'Given feature name `{featureName}` does not match any defined features: {featureNames}'
+        self.taxonomyData["features"].append(featureName)
 
     def outputFilename(self, filename):
         (base, ext) = os.path.splitext(filename)
@@ -367,7 +376,7 @@ class IXBRLViewerBuilder:
         with open(os.path.join(os.path.dirname(__file__),"stubviewer.html")) as fin:
             return etree.parse(fin)
 
-    def createViewer(self, scriptUrl: str = DEFAULT_VIEWER_PATH, useStubViewer: bool = False, showValidations: bool = True, filingDocURL: str = None) -> Optional[iXBRLViewer]:
+    def createViewer(self, scriptUrl: str = DEFAULT_VIEWER_PATH, useStubViewer: bool = False, showValidations: bool = True, packageDownloadURL: str = None) -> Optional[iXBRLViewer]:
         """
         Create an iXBRL file with XBRL data as a JSON blob, and script tags added.
         :param scriptUrl: The `src` value of the script tag that loads the viewer script.
@@ -409,7 +418,7 @@ class IXBRLViewerBuilder:
 
             if useStubViewer:
                 xmlDocument = self.getStubDocument()
-                iv.addFile(iXBRLViewerFile("ixbrlviewer.html", xmlDocument))
+                iv.addFile(iXBRLViewerFile(DEFAULT_OUTPUT_NAME, xmlDocument))
             else:
                 xmlDocument = next(iter(xmlDocsByFilename.values()))
 
@@ -420,15 +429,15 @@ class IXBRLViewerBuilder:
             xmlDocument = self.getStubDocument()
             filename = self.outputFilename(os.path.basename(dts.modelDocument.filepath))
             docSetFiles = [ filename ]
-            iv.addFile(iXBRLViewerFile("ixbrlviewer.html", xmlDocument))
+            iv.addFile(iXBRLViewerFile(DEFAULT_OUTPUT_NAME, xmlDocument))
             iv.addFile(iXBRLViewerFile(filename, dts.modelDocument.xmlDocument))
 
         else:
             xmlDocument = deepcopy(dts.modelDocument.xmlDocument)
             iv.addFile(iXBRLViewerFile('xbrlviewer.html', xmlDocument))
 
-        if filingDocURL is not None:
-            self.taxonomyData["filingDocuments"] = filingDocURL
+        if packageDownloadURL is not None:
+            self.taxonomyData["filingDocuments"] = packageDownloadURL
         elif os.path.dirname(self.dts.modelDocument.filepath).endswith('.zip'):
             filingDocZipPath = os.path.dirname(self.dts.modelDocument.filepath)
             filingDocZipName = os.path.basename(filingDocZipPath)
