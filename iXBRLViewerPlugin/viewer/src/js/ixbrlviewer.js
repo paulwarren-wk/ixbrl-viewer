@@ -5,7 +5,6 @@ import $ from 'jquery'
 import { ReportSet } from "./reportset.js";
 import { Viewer, DocumentTooLargeError } from "./viewer.js";
 import { Inspector } from "./inspector.js";
-import { getURLVars } from "./util.js";
 
 export class iXBRLViewer {
 
@@ -116,6 +115,11 @@ export class iXBRLViewer {
     isViewerEnabled() {
         const urlParams = new URLSearchParams(window.location.search);
         return (urlParams.get('disable-viewer') ?? 'false') === 'false';
+    }
+
+    isNoPopupEnabled() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return (urlParams.get('nopopup') ?? 'false') !== 'false';
     }
 
     _loadInspectorHTML() {
@@ -295,7 +299,7 @@ export class iXBRLViewer {
 
                                 /* Focus on fact specified in URL fragment, if any */
                                 inspector.handleFactDeepLink();
-                                if (iv.options.showValidationWarningOnStart && !("nopopup" in getURLVars())) {
+                                if (iv.options.showValidationWarningOnStart && !iv.isNoPopupEnabled()) {
                                     inspector.showValidationWarning();
                                 }
                                 viewer.postLoadAsync();

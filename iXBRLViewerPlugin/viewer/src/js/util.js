@@ -134,21 +134,6 @@ export function setDefault(obj, key, def) {
     return obj[key];
 }
 
-export function getURLVars() {
-    const vars = {};
-    const parts = window.location.href.slice(window.location.href.indexOf('?') + 1).split('#')[0].split('&');
-    for (const part of parts) {
-        const keyValue = part.split('=',2);
-        if (keyValue.length == 2) {
-            vars[keyValue[0]] = keyValue[1];
-        }
-        else {
-            vars[keyValue[0]] = null;
-        }
-    }
-    return vars;
-}
-
 export function runGenerator(generator) {
     function resume() {
         const res = generator.next();

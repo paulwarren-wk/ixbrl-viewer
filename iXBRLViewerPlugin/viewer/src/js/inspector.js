@@ -218,16 +218,8 @@ export class Inspector {
                 "select-language"
             );
             this.setLanguage(dl);
-<<<<<<< HEAD
-            if (this._report.filingDocuments()) {
-                this._optionsMenu.addDownloadButton("Download report", this._report.filingDocuments())
-||||||| eaf576f
-            if (this._report.filingDocuments()) {
-                this._optionsMenu.addDownloadButton("Download filing documents", this._report.filingDocuments())
-=======
             if (this._reportSet.filingDocuments()) {
-                this._optionsMenu.addDownloadButton("Download filing documents", this._reportSet.filingDocuments())
->>>>>>> upstream/master
+                this._optionsMenu.addDownloadButton("Download report", this._reportSet.filingDocuments())
             }
             this._optionsMenu.addCheckboxItem(i18next.t("calculation.useCalculations11"), (useCalc11) => this.setCalculationMode(useCalc11), "calculation-mode", "select-language", this._useCalc11);
         }
