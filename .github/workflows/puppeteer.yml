@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 permissions: {}
 
@@ -17,23 +18,23 @@ jobs:
           - ubuntu-22.04
           - windows-2022
         node-version:
-          - '16'
           - '18'
           - '20'
+          - '21'
         python-version:
-          - '3.11'
+          - '3.12'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4.1.0
+      - uses: actions/checkout@v4.1.2
         with:
           fetch-depth: 0 # npm run prod requires tags, sadly this is the only way to get them.
-      - uses: actions/setup-node@v3.8.1
+      - uses: actions/setup-node@v4.0.2
         with:
           cache: 'npm'
           check-latest: true
           node-version: ${{ matrix.node-version }}
       - name: Install Python 3
-        uses: actions/setup-python@v4.7.0
+        uses: actions/setup-python@v5.0.0
         with:
           cache: 'pip'
           cache-dependency-path: '**/pyproject.toml'
@@ -42,7 +43,7 @@ jobs:
       - name: Install Dependencies
         run: npm ci
       - name: Install Arelle
-        run: pip install arelle-release .
+        run: pip install .[arelle]
       - name: Build viewer js
         run: make prod
       - name: Generate test viewers
@@ -53,7 +54,7 @@ jobs:
         run: npx http-server . &> tests/puppeteer/artifacts/http_server.log &
       - name: Run puppeteer tests
         run: npm run test:puppeteer
-      - uses: actions/upload-artifact@v3.1.3
+      - uses: actions/upload-artifact@v4.3.1
         if: failure()
         with:
           name: ${{ github.run_id }}.${{ github.run_attempt }}_${{ matrix.os }}_${{ matrix.node-version }}_${{ matrix.python-version }}_artifacts

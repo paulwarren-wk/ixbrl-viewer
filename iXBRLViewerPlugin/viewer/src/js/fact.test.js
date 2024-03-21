@@ -1,13 +1,14 @@
 // See COPYRIGHT.md for copyright information
 
 import { Fact } from "./fact.js";
-import { iXBRLReport } from "./report.js";
+import { ReportSet } from "./reportset.js";
 import { TestInspector } from "./test-utils.js";
+import { NAMESPACE_ISO4217 } from "./util";
 
 var testReportData = {
     "prefixes": {
         "eg": "http://www.example.com",
-        "iso4217": "http://www.xbrl.org/2003/iso4217",
+        "iso4217": NAMESPACE_ISO4217,
         "e": "http://example.com/entity",
     },
     "concepts": {
@@ -31,6 +32,14 @@ var testReportData = {
                     "en": "English label for concept three"
                 }
             }
+        },
+        "eg:TextBlockConcept1": {
+            "labels": {
+                "std": {
+                    "en": "Text block concept"
+                }
+            },
+            "t": true,
         },
         "eg:EnumConcept": {
             "labels": {
@@ -75,16 +84,16 @@ function testReport(facts, ixData) {
     // Deep copy of standing data
     var data = JSON.parse(JSON.stringify(testReportData));
     data.facts = facts;
-    var report = new iXBRLReport(data);
-    report.setIXNodeMap(ixData);
-    return report;
+    var reportSet = new ReportSet(data);
+    reportSet.setIXNodeMap(ixData);
+    return reportSet.reports[0];
 }
 
 function testFact(factData, ixData) {
     factData.a = factData.a || {};
     factData.a.c = factData.a.c || 'eg:Concept1';
     ixData = ixData || {};
-    return new Fact(testReport({"f1": factData}, {"f1": ixData }), "f1");
+    return new Fact(testReport({"f1": factData}, {"f1": ixData }), "f1", factData);
 }
 
 var insp = new TestInspector();
@@ -108,7 +117,6 @@ describe("Simple fact properties", () => {
         expect(f.isMonetaryValue()).toBeTruthy();
         expect(f.readableValue()).toEqual("US $ 1,000");
         expect(f.unit().value()).toEqual("iso4217:USD");
-        expect(f.measure()).toEqual("iso4217:USD");
         expect(f.conceptQName().prefix).toEqual("eg");
         expect(f.conceptQName().localname).toEqual("Concept1");
         expect(f.conceptQName().namespace).toEqual("http://www.example.com");
@@ -128,9 +136,8 @@ describe("Simple fact properties", () => {
         expect(f.isNumeric()).toBeTruthy();
         expect(f.decimals()).toEqual(-3);
         expect(f.isMonetaryValue()).toBeFalsy();
-        expect(f.readableValue()).toEqual("1,000 eg:USD");
+        expect(f.readableValue()).toEqual("1,000 USD");
         expect(f.unit().value()).toEqual("eg:USD");
-        expect(f.measure()).toEqual("eg:USD");
         expect(f.conceptQName().prefix).toEqual("eg");
         expect(f.conceptQName().localname).toEqual("Concept1");
         expect(f.conceptQName().namespace).toEqual("http://www.example.com");
@@ -149,9 +156,8 @@ describe("Simple fact properties", () => {
         expect(f.decimals()).toBeUndefined();
         expect(f.isNumeric()).toBeTruthy();
         expect(f.isMonetaryValue()).toBeFalsy();
-        expect(f.readableValue()).toEqual("1,000,000.0125 eg:USD");
+        expect(f.readableValue()).toEqual("1,000,000.0125 USD");
         expect(f.unit().value()).toEqual("eg:USD");
-        expect(f.measure()).toEqual("eg:USD");
         expect(f.conceptQName().prefix).toEqual("eg");
         expect(f.conceptQName().localname).toEqual("Concept1");
         expect(f.conceptQName().namespace).toEqual("http://www.example.com");
@@ -539,7 +545,7 @@ describe("Readable value", () => {
     test("Other numeric", () => {
 
         expect(testFact({ "v": "10", d: -2, a: { u: "xbrli:foo" } }).readableValue())
-            .toBe("10 xbrli:foo");
+            .toBe("10 foo");
 
     });
 
@@ -552,20 +558,43 @@ describe("Readable value", () => {
 
     });
 
-    test("Strip HTML tags and normalise whitespace", () => {
+    test("Escaped string", () => {
 
         expect(testFact({ "v": "<b>foo</b>" }, {"escaped": true }).readableValue())
-            .toBe("foo");
+            .toBe("<b>foo</b>");
 
         expect(testFact({ "v": "    <b>foo</b>bar" }, {"escaped": true }).readableValue())
-            .toBe("foobar");
+            .toBe("    <b>foo</b>bar");
 
         expect(testFact({ "v": "\u00a0<b>foo</b>" }, {"escaped": true }).readableValue())
+            .toBe("\u00a0<b>foo</b>");
+
+    });
+
+    test("Strip HTML tags and normalise whitespace", () => {
+
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<b>foo</b>" }, {"escaped": true }).readableValue())
+            .toBe("foo");
+
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "    <b>foo</b>bar" }, {"escaped": true }).readableValue())
+            .toBe("foobar");
+
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "\u00a0<b>foo</b>" }, {"escaped": true }).readableValue())
             .toBe("foo");
 
     });
 
-    test("Don't strip non-escaped facts", () => {
+    test("Strip non-escaped text block facts", () => {
+
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "\u00a0<b>foo</b>" }, {"escaped": false }).readableValue())
+            .toBe("foo");
+
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "\u00a0<b>foo</b>" }, {  }).readableValue())
+            .toBe("foo");
+
+    });
+
+    test("Don't strip non-text-block facts", () => {
 
         expect(testFact({ "v": "\u00a0<b>foo</b>" }, {"escaped": false }).readableValue())
             .toBe("\u00a0<b>foo</b>");
@@ -576,40 +605,40 @@ describe("Readable value", () => {
     });
 
     test("Detect and strip HTML tags - XHTML tags and attributes", () => {
-        expect(testFact({ "v": "<xhtml:b>foo</xhtml:b>" }, {"escaped": true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<xhtml:b>foo</xhtml:b>" }, {"escaped": true }).readableValue())
             .toBe("foo");
 
-        expect(testFact({ "v": '<xhtml:span style="font-weight: bold">foo</xhtml:span>' }, {"escaped": true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": '<xhtml:span style="font-weight: bold">foo</xhtml:span>' }, {"escaped": true }).readableValue())
             .toBe("foo");
     });
 
     test("Detect and strip HTML tags - check behaviour with invalid HTML", () => {
         /* Invalid HTML  */
-        expect(testFact({ "v": "<b:b:b>foo</b:b:b>" }, {"escaped": true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<b:b:b>foo</b:b:b>" }, {"escaped": true }).readableValue())
             .toBe("foo");
 
-        expect(testFact({ "v": "<foo<bar>baz</bar>" }, {"escaped": true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<foo<bar>baz</bar>" }, {"escaped": true }).readableValue())
             .toBe("baz");
     });
 
     test("Text in consecutive inline elements should be contiguous", () => {
 
-        expect(testFact({ "v": "<b>foo</b><i>bar</i>" }, {"escaped":true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<b>foo</b><i>bar</i>" }, {"escaped":true }).readableValue())
             .toBe("foobar");
 
     });
 
     test("Text in block/table elements should be separated.", () => {
 
-        expect(testFact({ "v": "<p>foo</p><p>bar</p>" }, {"escaped":true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<p>foo</p><p>bar</p>" }, {"escaped":true }).readableValue())
             .toBe("foo bar");
 
         /* This should really return "foo bar", but we don't correctly detect
          * block tags in prefixed XHTML */
-        expect(testFact({ "v": '<xhtml:p xmlns:xhtml="https://www.w3.org/1999/xhtml/">foo</xhtml:p><xhtml:p>bar</xhtml:p>' }, {"escaped":true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": '<xhtml:p xmlns:xhtml="https://www.w3.org/1999/xhtml/">foo</xhtml:p><xhtml:p>bar</xhtml:p>' }, {"escaped":true }).readableValue())
             .toBe("foobar");
 
-        expect(testFact({ "v": "<table><tr><td>cell1</td><td>cell2</td></tr></table>" }, {"escaped":true })
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<table><tr><td>cell1</td><td>cell2</td></tr></table>" }, {"escaped":true })
             .readableValue())
             .toBe("cell1 cell2");
 
@@ -617,7 +646,7 @@ describe("Readable value", () => {
 
     test("Whitespace normalisation", () => {
 
-        expect(testFact({ "v": "<p>bar  foo</p> <p>bar</p>" }, {"escaped":true }).readableValue())
+        expect(testFact({ "a": { "c": "eg:TextBlockConcept1" }, "v": "<p>bar  foo</p> <p>bar</p>" }, {"escaped":true }).readableValue())
             .toBe("bar foo bar");
 
     });
@@ -635,8 +664,7 @@ describe("Unit aspect handling", () => {
         expect(f.isNumeric()).toBeTruthy();
         expect(f.isMonetaryValue()).toBeFalsy();
         expect(f.unit()).toBeUndefined();
-        expect(f.measure()).toBeUndefined();
-        expect(f.measureLabel()).toBe("<NOUNIT>");
+        expect(f.unitLabel()).toBe("<NOUNIT>");
     });
 
     test("Non-numeric, no unit", () => {    
@@ -647,7 +675,6 @@ describe("Unit aspect handling", () => {
         });
         expect(f.isNumeric()).toBeFalsy();
         expect(f.unit()).toBeUndefined();
-        expect(f.measure()).toBeUndefined();
     });
 });
 
@@ -707,7 +734,6 @@ describe("Fact errors", () => {
         expect(f.isMonetaryValue()).toBeTruthy();
         expect(f.readableValue()).toEqual("Invalid value");
         expect(f.unit().value()).toEqual("iso4217:USD");
-        expect(f.measure()).toEqual("iso4217:USD");
         expect(f.conceptQName().prefix).toEqual("eg");
         expect(f.conceptQName().localname).toEqual("Concept1");
         expect(f.conceptQName().namespace).toEqual("http://www.example.com");

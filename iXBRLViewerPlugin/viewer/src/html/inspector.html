@@ -116,6 +116,18 @@ See COPYRIGHT.md for copyright information
             </div>
           </div>
 
+          <div id="search-filter-target-document" class="collapsible-section collapsible-only collapsed">
+            <h3 class="collapsible-header">
+              <span data-i18n="inspector.targetDocument">Target Document</span>
+              <span class="collapsible-subheader"></span>
+            </h3>
+            <div class="collapsible-body target-document" style="display: none;">
+              <span class="reset-multiselect"></span>
+              <select multiple>
+              </select>
+            </div>
+          </div>
+
           <div id="search-filter-units" class="collapsible-section collapsible-only collapsed">
             <h3 class="collapsible-header">
               <span data-i18n="inspector.units">Units</span>
@@ -169,8 +181,8 @@ See COPYRIGHT.md for copyright information
           </div>
 
           <div class="filter-info">
-            <span id="matching-concepts-count">?</span>
-            <span data-i18n="inspector.matchingConcepts"> matching concept(s)</span>
+            <span id="matching-facts-count">?</span>
+            <span data-i18n="inspector.matchingFacts"> matching facts(s)</span>
           </div>
         </div>
       </div>
@@ -183,8 +195,11 @@ See COPYRIGHT.md for copyright information
           <p class="title" data-i18n="inspector.noFactSelected">No Fact Selected</p>
         </div>
         <div class="fact-selected-only">
-          <div class="hidden-fact-tag" data-i18n="inspector.hiddenFact">Hidden Fact</div>
-          <div class="html-hidden-fact-tag" data-i18n="inspector.concealedFact">Concealed Fact</div>
+          <div class="tags">
+            <div class="target-document-tag"></div>
+            <div class="hidden-fact-tag" data-i18n="inspector.hiddenFact">Hidden Fact</div>
+            <div class="html-hidden-fact-tag" data-i18n="inspector.concealedFact">Concealed Fact</div>
+          </div>
           <div class="collapsible-section">
             <div class="fact-inspector collapsible-body">
             </div>
@@ -368,6 +383,33 @@ See COPYRIGHT.md for copyright information
           </table>
           <div class="buttons">
           </div>
+      </div>
+    </div>
+    <div class="dialog calculation-inspector">
+      <div class="close"></div>
+      <div class="contents">
+        <h2 data-i18n="inspector.calculationDetails">Calculation details</h2>
+        <table class="calculation-trace">
+          <thead>
+            <tr>
+              <th class="weight"></th>
+              <th class="line-item" data-i18n="calculation.concept">Concept</th>
+              <th class="value-column" data-i18n="calculation.reported-value">Reported Value</th>
+              <th class="icons"></th>
+              <th class="value-column calc11-only" data-i18n="calculation.mininum">Minimum</th>
+              <th class="value-column calc11-only" data-i18n="calculation.maximum">Maximum</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+          <tfoot>
+            <tr>
+                <td colspan="6" class="status"><span class="icon"></span> <span class="message"></span></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="buttons">
+        </div>
       </div>
     </div>
     <div class="dialog text-block-viewer">

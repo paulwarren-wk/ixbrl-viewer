@@ -8,10 +8,11 @@ except ImportError:
 
 import os
 
-from .constants import CONFIG_FEATURE_PREFIX, CONFIG_FILE_DIRECTORY, CONFIG_LAUNCH_ON_LOAD, \
-    CONFIG_OUTPUT_FILE, CONFIG_SCRIPT_URL, CONFIG_ZIP_OUTPUT, DEFAULT_LAUNCH_ON_LOAD, \
-    DEFAULT_VIEWER_PATH, GUI_FEATURE_CONFIGS
+from .constants import CONFIG_COPY_SCRIPT, CONFIG_FEATURE_PREFIX, CONFIG_FILE_DIRECTORY, \
+    CONFIG_LAUNCH_ON_LOAD, CONFIG_OUTPUT_FILE, CONFIG_SCRIPT_URL, CONFIG_ZIP_OUTPUT, \
+    DEFAULT_COPY_SCRIPT, DEFAULT_LAUNCH_ON_LOAD, GUI_FEATURE_CONFIGS
 
+UNSET_SCRIPT_URL = ''
 
 class BaseViewerDialog(Toplevel):
     """
@@ -28,7 +29,9 @@ class BaseViewerDialog(Toplevel):
             featureVar.set(self.cntlr.config.setdefault(f'{CONFIG_FEATURE_PREFIX}{featureConfig.key}', featureConfig.guiDefault))
             self._features[featureConfig.key] = featureVar
         self._scriptUrl = StringVar()
-        self._scriptUrl.set(self.cntlr.config.setdefault(CONFIG_SCRIPT_URL, DEFAULT_VIEWER_PATH))
+        self._scriptUrl.set(self.cntlr.config.setdefault(CONFIG_SCRIPT_URL, UNSET_SCRIPT_URL))
+        self._copyScript = BooleanVar()
+        self._copyScript.set(self.cntlr.config.setdefault(CONFIG_COPY_SCRIPT, DEFAULT_COPY_SCRIPT))
 
     def addButtons(self, frame: Frame, x: int, y: int) -> int:
         """
@@ -56,10 +59,16 @@ class BaseViewerDialog(Toplevel):
         :return: Row `y` that the last field was added on
         """
         y += 1
-        scriptUrlLabel = Label(frame, text="Script URL")
+        scriptUrlLabel = Label(frame, text="Script URL (leave blank for default)")
         scriptUrlEntry = Entry(frame, textvariable=self._scriptUrl, width=80)
         scriptUrlLabel.grid(row=y, column=0, sticky=W, pady=3, padx=3)
         scriptUrlEntry.grid(row=y, column=1, columnspan=2, sticky=EW, pady=3, padx=3)
+
+        y += 1
+        copyScriptCheckbutton = Checkbutton(frame, text="Copy Script", variable=self._copyScript, onvalue=True, offvalue=False)
+        copyScriptLabel = Label(frame, text="Copy the iXBRL Viewer script into the output directory.")
+        copyScriptCheckbutton.grid(row=y, column=0, pady=3, padx=3, sticky=W)
+        copyScriptLabel.grid(row=y, column=1, columnspan=3, pady=3, padx=3, sticky=W)
 
         y += 1
         featuresLabel = Label(frame, text="Generate with optional features:")
@@ -128,6 +137,9 @@ class BaseViewerDialog(Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.grab_set()
         self.wait_window(self)
+
+    def copyScript(self):
+        return self._copyScript.get()
 
     def features(self):
         # Return list of feature keys with corresponding BooleanVar is set to True
@@ -237,6 +249,7 @@ class SettingsDialog(BaseViewerDialog):
         """
         self.cntlr.config[CONFIG_LAUNCH_ON_LOAD] = self._launchOnLoad.get()
         self.cntlr.config[CONFIG_SCRIPT_URL] = self._scriptUrl.get()
+        self.cntlr.config[CONFIG_COPY_SCRIPT] = self._copyScript.get()
         for key, var in self._features.items():
             self.cntlr.config[f'{CONFIG_FEATURE_PREFIX}{key}'] = var.get()
         self.cntlr.saveConfig()
@@ -247,6 +260,7 @@ class SettingsDialog(BaseViewerDialog):
         Resets dialog variable values to default values
         """
         self._launchOnLoad.set(DEFAULT_LAUNCH_ON_LOAD)
-        self._scriptUrl.set(DEFAULT_VIEWER_PATH)
+        self._scriptUrl.set(UNSET_SCRIPT_URL)
+        self._copyScript.set(DEFAULT_COPY_SCRIPT)
         for featureConfig in GUI_FEATURE_CONFIGS:
             self._features[featureConfig.key].set(featureConfig.guiDefault)

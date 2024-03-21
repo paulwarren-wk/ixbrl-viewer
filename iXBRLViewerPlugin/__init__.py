@@ -9,18 +9,19 @@ import sys
 import tempfile
 import traceback
 from optparse import OptionGroup, OptionParser
-from typing import Optional, Union
+from pathlib import Path
 
 from arelle import Cntlr
 from arelle.LocalViewer import LocalViewer
 from arelle.ModelDocument import Type
+from arelle.UrlUtil import isHttpUrl
 from arelle.webserver.bottle import static_file
 
-from .constants import CONFIG_FEATURE_PREFIX, CONFIG_LAUNCH_ON_LOAD, \
-    CONFIG_SCRIPT_URL, DEFAULT_LAUNCH_ON_LOAD, DEFAULT_OUTPUT_NAME, \
-    DEFAULT_VIEWER_PATH, FEATURE_CONFIGS
+from .constants import CONFIG_COPY_SCRIPT, CONFIG_FEATURE_PREFIX, CONFIG_LAUNCH_ON_LOAD, \
+    CONFIG_SCRIPT_URL, DEFAULT_COPY_SCRIPT, DEFAULT_LAUNCH_ON_LOAD, DEFAULT_OUTPUT_NAME, \
+    DEFAULT_JS_FILENAME, DEFAULT_VIEWER_PATH, ERROR_MESSAGE_CODE, \
+    EXCEPTION_MESSAGE_CODE, FEATURE_CONFIGS
 from .iXBRLViewer import IXBRLViewerBuilder, IXBRLViewerBuilderError
-
 
 #
 # GUI operation:
@@ -55,7 +56,18 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       action="store",
                       dest="viewerURL",
                       default=DEFAULT_VIEWER_PATH,
-                      help="Specify the URL to ixbrlviewer.js")
+                      help="A filepath or URL to the iXBRL Viewer JavaScript file which will be downloaded or copied into the output directory."
+                           " If a relative filepath is to be copied it will be resolved relative to the current working directory."
+                           " If '--viewer-no-copy-script' is used, the '--viewer-url' file will not be copied or downloaded and instead directly referenced from the HTML file."
+                           " Examples: 'customViewerScript.js', '/path/to/ixbrlviewer.js', 'https://example.com/ixbrlviewer.js'."
+                           f" The default value is '{DEFAULT_JS_FILENAME}'.")
+    parser.add_option("--viewer-no-copy-script",
+                      action="store_true",
+                      dest="viewerNoCopyScript",
+                      default=False,
+                      help="Prevent copying the iXBRL Viewer's JavaScript file from '--viewer-url' into the output directory."
+                           " If used, the iXBRL Viewer HTML file will reference the '--viewer-url' directly."
+                           " It must be a valid script location at the time the viewer is opened in a browser.")
     parser.add_option("--viewer-validation-messages",
                       dest="validationMessages",
                       action="store_true",
@@ -81,6 +93,11 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
                       default=False,
                       dest="zipViewerOutput",
                       help="Converts the viewer output into a self contained zip")
+
+    # Force "keepOpen" to true, so that all models are retained.  Needed for
+    # multi-instance viewers.
+    parser.set_defaults(keepOpen = True)
+
     featureGroup = OptionGroup(parser, "Viewer Features",
                             "See viewer README for information on enabling/disabling features.")
     for featureConfig in FEATURE_CONFIGS:
@@ -91,79 +108,86 @@ def iXBRLViewerCommandLineOptionExtender(parser, *args, **kwargs):
 
 def generateViewer(
         cntlr: Cntlr,
-        saveViewerDest: Union[io.BytesIO, str],
+        saveViewerDest: io.BytesIO | str | None,
         viewerURL: str = DEFAULT_VIEWER_PATH,
         showValidationMessages: bool = False,
         useStubViewer: bool = False,
         zipViewerOutput: bool = False,
-        features: Optional[list[str]] = None,
-        packageDownloadURL: str = None):
+        features: list[str] | None = None,
+        packageDownloadURL: str | None = None,
+        copyScript: bool = True,
+) -> None:
     """
-    Generate and save a viewer at the given destination (file, directory, or in-memory file) with the given viewer URL.
-    If the viewer URL is a location on the local file system, a copy will be placed included in the output destination.
+    Generate and save an iXBRL viewer at the given destination (file, directory, or in-memory file) with the given viewer script URL.
+    If copyScript is True the viewer script will be copied into the output destination.
     :param cntlr: The arelle controller that contains the model to be included in the viewer
     :param saveViewerDest: The target that viewer data/files will be written to (path to file or directory, or a file object itself).
-    :param viewerURL: The filepath or URL location of the viewer script.
+    :param viewerURL: The filepath or URL location of the iXBRL Viewer JavaScript file.
     :param showValidationMessages: True if validation messages should be shown in the viewer.
     :param useStubViewer: True if the stub viewer should be used.
     :param zipViewerOutput: True if the destination is a zip archive.
-    :param features: List of feature names to enable via generated JSON data.
+    :param features: Optional list of features to enable.
+    :param packageDownloadURL: Optional URL to use as the report package download URL.
+    :param copyScript: Controls if the script referenced by viewerURL is copied into the output directory, or directly set as the 'src' value of the script tag in the HTML iXBRL Viewer.
     """
     # extend XBRL-loaded run processing for this option
-    if cntlr.modelManager is None or cntlr.modelManager.modelXbrl is None or not cntlr.modelManager.modelXbrl.modelDocument:
-        cntlr.addToLog("No taxonomy loaded.")
+    abortGenerationMsg = "Skipping iXBRL Viewer generation."
+    if not saveViewerDest:
+        cntlr.addToLog(f"iXBRL Viewer destination not provided. {abortGenerationMsg}", messageCode=EXCEPTION_MESSAGE_CODE)
         return
-    modelXbrl = cntlr.modelManager.modelXbrl
-    if modelXbrl.modelDocument.type not in (Type.INLINEXBRL, Type.INLINEXBRLDOCUMENTSET):
-        cntlr.addToLog("No inline XBRL document loaded.")
+
+    if not viewerURL:
+        cntlr.addToLog(f"iXBRL Viewer script not provided. {abortGenerationMsg}", messageCode=EXCEPTION_MESSAGE_CODE)
         return
+
+    if (cntlr.modelManager is None
+        or len(cntlr.modelManager.loadedModelXbrls) == 0
+        or any(not mx.modelDocument for mx in cntlr.modelManager.loadedModelXbrls)):
+        cntlr.addToLog(f"No taxonomy loaded. {abortGenerationMsg}", messageCode=ERROR_MESSAGE_CODE)
+        return
+    if cntlr.modelManager.modelXbrl.modelDocument.type not in (Type.INLINEXBRL, Type.INLINEXBRLDOCUMENTSET):
+        cntlr.addToLog(f"No inline XBRL document loaded. {abortGenerationMsg}", messageCode=ERROR_MESSAGE_CODE)
+        return
+
     copyScriptPath = None
-    if isinstance(saveViewerDest, str):
-        # Note on URLs: Rather than rely on logic to determine if the input is a file
-        # path or web address, we can allow web addresses to be considered relative paths.
-        # Unless the URL happens to resolve to an existing file on the local filesystem,
-        # it will skip this step and pass through into the viewer as expected.
-        if os.path.isabs(viewerURL):
-            viewerAbsolutePath = viewerURL
-        else:
-            viewerAbsolutePath = getAbsoluteViewerPath(saveViewerDest, viewerURL)
+    if copyScript:
+        originalViewerURL = viewerURL
+        viewerPath = None
+        if isHttpUrl(originalViewerURL):
+            cacheScript = cntlr.webCache.getfilename(originalViewerURL)
+            if cacheScript and (cacheScriptPath := Path(cacheScript)).is_file():
+                viewerPath = cacheScriptPath
+            else:
+                downloadFailedErrorMessage = f"Unable to download iXBRL Viewer script '{originalViewerURL}'."
+                if cntlr.webCache.workOffline:
+                    downloadFailedErrorMessage += " Disable offline mode and try again."
+                cntlr.addToLog(f"{downloadFailedErrorMessage} {abortGenerationMsg}", messageCode=EXCEPTION_MESSAGE_CODE)
+                return
 
-        if os.path.isfile(viewerAbsolutePath):
-            # The script was found on the local file system and will be copied into the
-            # destination directory, so the local path (just the basename) of viewerURL should
-            # be passed to the script tag
-            copyScriptPath = viewerURL
-            viewerURL = os.path.basename(viewerURL)
+        if not viewerPath:
+            viewerPath = Path(viewerURL)
+        copyScriptPath = viewerPath.resolve()
+        viewerURL = viewerPath.name
+        if not viewerPath.is_file():
+            cntlr.addToLog(f"iXBRL Viewer script not found at '{viewerPath}'. {abortGenerationMsg}", messageCode=EXCEPTION_MESSAGE_CODE)
+            return
+
     try:
-        out = saveViewerDest
-        if out:
-            viewerBuilder = IXBRLViewerBuilder(modelXbrl)
-            if features:
-                for feature in features:
-                    viewerBuilder.enableFeature(feature)
-            iv = viewerBuilder.createViewer(scriptUrl=viewerURL, showValidations=showValidationMessages, useStubViewer=useStubViewer, packageDownloadURL=packageDownloadURL)
-            if iv is not None:
-                iv.save(out, zipOutput=zipViewerOutput, copyScriptPath=copyScriptPath)
+        viewerBuilder = IXBRLViewerBuilder(cntlr.modelManager.loadedModelXbrls)
+        if features:
+            for feature in features:
+                viewerBuilder.enableFeature(feature)
+        iv = viewerBuilder.createViewer(scriptUrl=viewerURL, showValidations=showValidationMessages, useStubViewer=useStubViewer, packageDownloadURL=packageDownloadURL)
+        if iv is not None:
+            iv.save(saveViewerDest, zipOutput=zipViewerOutput, copyScriptPath=copyScriptPath)
     except IXBRLViewerBuilderError as ex:
-        print(ex.message)
+        print(ex)
     except Exception as ex:
-        cntlr.addToLog("Exception {} \nTraceback {}".format(ex, traceback.format_tb(sys.exc_info()[2])))
+        tb = traceback.format_tb(sys.exc_info()[2])
+        cntlr.addToLog(f"Exception {ex} \nTraceback {tb}", messageCode=EXCEPTION_MESSAGE_CODE)
 
 
-def getAbsoluteViewerPath(saveViewerPath: str, relativeViewerPath: str) -> str:
-    """
-    Generate a path to the viewer script given the save destination path as a starting point.
-    :param saveViewerPath: Path to file or directory where viewer output will be saved.
-    :param relativeViewerPath: Path to save destination relative to viewer save path.
-    :return: An absolute file path to the viewer.
-    """
-    saveViewerDir = saveViewerPath
-    if os.path.isfile(saveViewerDir):
-        saveViewerDir = os.path.dirname(os.path.join(os.getcwd(), saveViewerDir))
-    return os.path.join(saveViewerDir, relativeViewerPath)
-
-
-def getFeaturesFromOptions(options: Union[argparse.Namespace, OptionParser]):
+def getFeaturesFromOptions(options: argparse.Namespace | OptionParser):
     return [
         featureConfig.key
         for featureConfig in FEATURE_CONFIGS
@@ -173,35 +197,37 @@ def getFeaturesFromOptions(options: Union[argparse.Namespace, OptionParser]):
 
 def iXBRLViewerCommandLineXbrlRun(cntlr, options, *args, **kwargs):
     generateViewer(
-        cntlr,
-        options.saveViewerDest or kwargs.get("responseZipStream"),
-        options.viewerURL,
-        options.validationMessages,
-        options.useStubViewer,
-        options.zipViewerOutput,
-        getFeaturesFromOptions(options),
-        options.packageDownloadURL,
+        cntlr=cntlr,
+        saveViewerDest=options.saveViewerDest or kwargs.get("responseZipStream"),
+        viewerURL=options.viewerURL,
+        copyScript=not options.viewerNoCopyScript,
+        showValidationMessages=options.validationMessages,
+        useStubViewer=options.useStubViewer,
+        zipViewerOutput=options.zipViewerOutput,
+        features=getFeaturesFromOptions(options),
+        packageDownloadURL=options.packageDownloadURL,
     )
 
 
 def iXBRLViewerSaveCommand(cntlr):
     from .ui import SaveViewerDialog
     if cntlr.modelManager is None or cntlr.modelManager.modelXbrl is None:
-        cntlr.addToLog("No document loaded.")
+        cntlr.addToLog("No document loaded.", messageCode=ERROR_MESSAGE_CODE)
         return
     modelXbrl = cntlr.modelManager.modelXbrl
     if modelXbrl.modelDocument.type not in (Type.INLINEXBRL, Type.INLINEXBRLDOCUMENTSET):
-        cntlr.addToLog("No inline XBRL document loaded.")
+        cntlr.addToLog("No inline XBRL document loaded.", messageCode=ERROR_MESSAGE_CODE)
         return
     dialog = SaveViewerDialog(cntlr)
     dialog.render()
     if dialog.accepted and dialog.filename():
         generateViewer(
-            cntlr,
-            dialog.filename(),
-            dialog.scriptUrl(),
+            cntlr=cntlr,
+            saveViewerDest=dialog.filename(),
+            viewerURL=dialog.scriptUrl() or DEFAULT_VIEWER_PATH,
+            copyScript=dialog.copyScript(),
             zipViewerOutput=dialog.zipViewerOutput(),
-            features=dialog.features()
+            features=dialog.features(),
         )
 
 
@@ -242,23 +268,23 @@ def commandLineRun(*args, **kwargs):
 class iXBRLViewerLocalViewer(LocalViewer):
     # plugin-specific local file handler
     def getLocalFile(self, file, relpath, request):
-        _report, _sep, _file = file.partition("/")
-        if file == 'ixbrlviewer.js':
-            return static_file('ixbrlviewer.js', os.path.dirname(DEFAULT_VIEWER_PATH))
-        elif _report.isnumeric():  # in reportsFolder folder
+        if file == DEFAULT_JS_FILENAME:
+            return static_file(DEFAULT_JS_FILENAME, os.path.dirname(DEFAULT_VIEWER_PATH))
+        _report, _, _file = file.partition("/")
+        if _report.isnumeric():  # in reportsFolder folder
             # check if file is in the current or parent directory
             _fileDir = self.reportsFolders[int(_report)]
             _fileExists = False
             if os.path.exists(os.path.join(_fileDir, _file)):
                 _fileExists = True
-            elif "/" in _file and os.path.exists(os.path.join(_fileDir, os.path.filepart(_file))):
+            elif "/" in _file and os.path.exists(os.path.join(_fileDir, os.path.basename(_file))):
                 # xhtml in a subdirectory for output files may refer to an image file in parent directory
                 _fileExists = True
-                _file = os.path.filepart(_file)
+                _file = os.path.basename(_file)
             if not _fileExists:
                 self.cntlr.addToLog("http://localhost:{}/{}".format(self.port, file), messageCode="localViewer:fileNotFound", level=logging.DEBUG)
             return static_file(_file, root=_fileDir, headers=self.noCacheHeaders)  # extra_headers modification to py-bottle
-        return static_file(file, root="/")  # probably can't get here unless path is wrong
+        return static_file(file, root="/")  # absolute path used for ixbrlviewer.js.
 
 
 def guiRun(cntlr, modelXbrl, attach, *args, **kwargs):
@@ -277,19 +303,21 @@ def guiRun(cntlr, modelXbrl, attach, *args, **kwargs):
             if cntlr.config.setdefault(f'{CONFIG_FEATURE_PREFIX}{c.key}', False)
         ]
         generateViewer(
-            cntlr,
+            cntlr=cntlr,
             saveViewerDest=tempViewer.name,
-            viewerURL=cntlr.config.setdefault(CONFIG_SCRIPT_URL, DEFAULT_VIEWER_PATH),
+            viewerURL=cntlr.config.get(CONFIG_SCRIPT_URL) or DEFAULT_VIEWER_PATH,
+            copyScript=cntlr.config.get(CONFIG_COPY_SCRIPT, DEFAULT_COPY_SCRIPT),
             useStubViewer=True,
-            features=features
+            features=features,
         )
-        localViewer = iXBRLViewerLocalViewer("iXBRL Viewer",  os.path.dirname(__file__))
-        localhost = localViewer.init(cntlr, tempViewer.name)
-        webbrowser.open(f'{localhost}/{viewer_file_name}')
+        if Path(tempViewer.name, viewer_file_name).exists():
+            localViewer = iXBRLViewerLocalViewer("iXBRL Viewer",  os.path.dirname(__file__))
+            localhost = localViewer.init(cntlr, tempViewer.name)
+            webbrowser.open(f'{localhost}/{viewer_file_name}')
     except Exception as ex:
         modelXbrl.error(
-            "viewer:exception",
-            "Exception %(exception)s \sTraceback %(traceback)s",
+            EXCEPTION_MESSAGE_CODE,
+            "Exception %(exception)s \nTraceback %(traceback)s",
             modelObject=modelXbrl, exception=ex, traceback=traceback.format_tb(sys.exc_info()[2])
         )
 
@@ -300,13 +328,16 @@ def load_plugin_url():
 
 __pluginInfo__ = {
     'name': 'ixbrl-viewer',
+    'aliases': [
+        'iXBRLViewerPlugin',
+    ],
     'version': '0.1',
     'description': "iXBRL Viewer creator",
     'license': 'License :: OSI Approved :: Apache License, Version 2.0 (Apache-2.0)',
     'author': 'Paul Warren',
     'copyright': 'Copyright :: Workiva Inc. :: 2019',
     'CntlrCmdLine.Options': commandLineOptionExtender,
-    'CntlrCmdLine.Xbrl.Run': commandLineRun,
+    'CntlrCmdLine.Filing.End': commandLineRun,
     'CntlrWinMain.Menu.Tools': toolsMenuExtender,
     'CntlrWinMain.Xbrl.Loaded': guiRun,
 }

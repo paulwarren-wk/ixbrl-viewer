@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools~=68.0", "wheel~=0.40", "setuptools_scm[toml]~=7.1"]
+requires = ["setuptools~=69.0", "wheel~=0.42", "setuptools_scm[toml]~=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -23,19 +23,24 @@ classifiers = [
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Operating System :: OS Independent',
     'Topic :: Text Processing :: Markup :: XML'
 ]
 requires-python = ">=3.8"
 dependencies = [
-    'arelle_release==2.*',
-    'lxml==4.*',
-    'pycountry==22.*'
+    'lxml>=4,<6'
 ]
 [project.optional-dependencies]
+arelle = [
+    'arelle_release==2.*',
+]
 dev = [
-    'nose2==0.13.0',
-    'typing-extensions==4.8.0'
+    'flake8==7.0.0',
+    'lxml-stubs==0.5.1',
+    'mypy==1.9.0',
+    'pytest==8.1.1',
+    'typing-extensions==4.10.0',
 ]
 
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html#entry-points-for-plugins
@@ -60,3 +65,31 @@ namespaces = false
 [tool.setuptools_scm]
 tag_regex = "^(?:[\\w-]+-?)?(?P<version>[vV]?\\d+(?:\\.\\d+){0,2}[^\\+]*)(?:\\+.*)?$"
 write_to = "iXBRLViewerPlugin/_version.py"
+
+[tool.mypy]
+# Warn when a # type: ignore comment does not specify any error codes
+enable_error_code = "ignore-without-code"
+python_version = "3.12"
+show_error_codes = true
+strict = true
+
+# --- ignore modules ---
+# remove from list below as each module is updated with type hinting
+[[tool.mypy.overrides]]
+module = [
+    'iXBRLViewerPlugin',
+    'iXBRLViewerPlugin.iXBRLViewer',
+    'iXBRLViewerPlugin.ui',
+    'iXBRLViewerPlugin.xhtmlserialize',
+]
+ignore_errors = true
+
+# --- Modules lacking stubs ---
+# Add any module missing library stubs or not having
+# the py.typed marker here
+[[tool.mypy.overrides]]
+module = [
+    'ttk',
+    'arelle.*',
+]
+ignore_missing_imports = true
