@@ -12,6 +12,7 @@
   },
   "common": {
     "accuracyInfinite": "Infinite precision",
+    "linkedHidden": "Linked hidden",
     "none": "None",
     "notApplicable": "n/a",
     "noTransform": "No transform",

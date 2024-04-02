@@ -328,7 +328,7 @@ export class Inspector {
                 .text(f.targetDocument())
                 .appendTo(tags);
         }
-        if (f.isHidden()) {
+        if (f.isHidden() && !f.linkedHidden()) {
             $('<div class="hidden"></div>')
                 .text(i18next.t("search.hiddenFact"))
                 .appendTo(tags);
@@ -1018,7 +1018,13 @@ export class Inspector {
                     scaleTD.wrapInner("<i></i>");
                 }
 
-                const transformTD = $('tr.transform td', factHTML).empty().append(fact.readableTransform());
+                const transformTD = $("tr.transform td", factHTML).empty();
+                if (fact.linkedHidden()) {
+                    transformTD.text(i18next.t("common.linkedHidden"));
+                }
+                else {
+                    transformTD.text(fact.readableTransform());
+                }
 
                 $('#dimensions', factHTML).empty();
                 const taxonomyDefinedAspects = fact.aspects().filter(a => a.isTaxonomyDefined());
@@ -1101,7 +1107,7 @@ export class Inspector {
                 $('.duplicates .next').off().click(() => this.selectItem(duplicates[(n+1) % ndup].vuid));
 
                 this.getPeriodIncrease(cf);
-                if (cf.isHidden()) {
+                if (cf.isHidden() && !cf.linkedHidden()) {
                     $('#inspector').addClass('hidden-fact');
                 }
                 else if (cf.isHTMLHidden()) {

@@ -26,6 +26,7 @@ export class IXNode {
         this.isHidden = false;
         this.docOrderindex = docOrderindex++;
         this.transform = undefined;
+        this.linkedHidden = false;
     }
 
     continuationIds() {

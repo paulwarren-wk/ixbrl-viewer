@@ -480,6 +480,7 @@ export class Viewer {
                     else {
                         this._ixNodeMap[vuid] = new IXNode(vuid, nodes, docIndex);
                     }
+                    ixn.linkedHidden = true;
                 }
                 if (name == 'A') {
                     this._updateLink(n);

@@ -241,6 +241,10 @@ export class Fact {
         return this.ixNode.transform;
     }
 
+    linkedHidden() {
+        return this.ixNode.linkedHidden;
+    }
+
     duplicates() {
         return this.report.getAlignedFacts(this);
     }
@@ -314,7 +318,7 @@ export class Fact {
         }
         const trr_name = TRR_NAMES[this.ixNode.transform.namespace];
         if (trr_name !== undefined) {
-            return `${this.ixNode.transform.localname} (${trr_name})`;
+            return `[${trr_name}] ${this.ixNode.transform.localname}`;
         }
         return this.ixNode.transform.qname;
     }
