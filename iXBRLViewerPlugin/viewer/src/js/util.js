@@ -9,6 +9,15 @@ export const SHOW_FACT = 'SHOW_FACT';
 
 export const NAMESPACE_ISO4217 = 'http://www.xbrl.org/2003/iso4217';
 
+export const TRR_NAMES = {
+    'http://www.xbrl.org/inlineXBRL/transformation/2010-04-20': 'TRR1',
+    'http://www.xbrl.org/inlineXBRL/transformation/2011-07-31': 'TRR2',
+    'http://www.xbrl.org/inlineXBRL/transformation/2015-02-26': 'TRR3',
+    'http://www.xbrl.org/inlineXBRL/transformation/2020-02-12': 'TRR4',
+    'http://www.xbrl.org/inlineXBRL/transformation/2022-02-16': 'TRR5',
+    'http://www.sec.gov/inlineXBRL/transformation/2015-08-31': 'SEC',
+};
+
 // The number of distinct highlight colors defined in inspector.less
 export const HIGHLIGHT_COLORS = 3;
 

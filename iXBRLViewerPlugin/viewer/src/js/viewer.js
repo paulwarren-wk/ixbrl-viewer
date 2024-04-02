@@ -7,6 +7,7 @@ import { IXNode } from './ixnode.js';
 import { getIXHiddenLinkStyle, runGenerator, escapeRegex, viewerUniqueId, HIGHLIGHT_COLORS } from './util.js';
 import { DocOrderIndex } from './docOrderIndex.js';
 import { MessageBox } from './messagebox.js';
+import { QName } from './qname.js';
 
 export class DocumentTooLargeError extends Error {}
 
@@ -65,7 +66,8 @@ export class Viewer {
                     viewer._iframes.each(function (docIndex) { 
                         $(this).data("selected", docIndex == viewer._currentDocumentIndex);
                         const reportIndex = $(this).data("report-index");
-                        viewer._preProcessiXBRL($(this).contents().find("body").get(0), reportIndex, docIndex);
+                        const iframeDoc = this.contentDocument || this.contentWindow.document;
+                        viewer._preProcessiXBRL(iframeDoc.documentElement, reportIndex, docIndex);
                     });
 
                     /* Call plugin promise for each document in turn */
@@ -352,6 +354,25 @@ export class Viewer {
         return ixn;
     }
 
+    _namespaceBindings(n) {
+        const nsMap = {};
+        for (const attr of n.attributes) {
+            if (attr.name.startsWith('xmlns:')) {
+                const [x, prefix] = attr.name.split(':');
+                nsMap[prefix] = attr.value;
+            }
+            else if (attr.name === 'xmlns') {
+                nsMap[""] = attr.value;
+            }
+        }
+        return nsMap;
+    }
+
+    _makeQName(nsMapStack, qname) {
+        const nsmap = nsMapStack.reduce((nsmap, v) => ({...nsmap, ...v}), {});
+        return new QName(nsmap, qname);
+    }
+
     //
     // Traverse the DOM hierarchy to find IX elements, and build maps and add
     // wrapper nodes and classes.
@@ -381,15 +402,17 @@ export class Viewer {
     // Viewer._docOrderItemIndex is a DocOrderIndex object that maintains a list of
     // fact and footnotes in document order.
     //
-    _preProcessiXBRL(n, reportIndex, docIndex, inHidden) {
+    _preProcessiXBRL(n, reportIndex, docIndex, inHidden, nsMapStack) {
         const name = localName(n.nodeName).toUpperCase();
         const isFootnote = name === 'FOOTNOTE';
         const isContinuation = name === 'CONTINUATION';
         const isNonNumeric = name === 'NONNUMERIC';
         const isNonFraction = name === 'NONFRACTION';
         const isFact = isNonNumeric || isNonFraction;
+        nsMapStack ??= [];
         if (n.nodeType === 1) {
             const vuid = viewerUniqueId(reportIndex, n.getAttribute("id"));
+            nsMapStack.push(this._namespaceBindings(n));
             if (isFact || isFootnote) {
                 // If @id is not present, it must be for a target document that wasn't processed.
                 if (n.hasAttribute("id")) {
@@ -418,6 +441,10 @@ export class Viewer {
                     if (isFootnote) {
                         nodes.addClass("ixbrl-element-footnote");
                         ixn.footnote = true;
+                    }
+                    if (n.hasAttribute("format")) {
+                        const format = n.getAttribute("format");
+                        ixn.transform = this._makeQName(nsMapStack, format);
                     }
                 }
             }
@@ -459,13 +486,14 @@ export class Viewer {
                     this._updateLink(n);
                 }
             }
+            this._preProcessChildNodes(n, reportIndex, docIndex, inHidden, nsMapStack);
+            nsMapStack.pop();
         }
-        this._preProcessChildNodes(n, reportIndex, docIndex, inHidden);
     }
 
-    _preProcessChildNodes(domNode, reportIndex, docIndex, inHidden) {
+    _preProcessChildNodes(domNode, reportIndex, docIndex, inHidden, nsMapStack) {
         for (const childNode of domNode.childNodes) {
-            this._preProcessiXBRL(childNode, reportIndex, docIndex, inHidden);
+            this._preProcessiXBRL(childNode, reportIndex, docIndex, inHidden, nsMapStack);
         }
     }
 

@@ -1018,6 +1018,8 @@ export class Inspector {
                     scaleTD.wrapInner("<i></i>");
                 }
 
+                const transformTD = $('tr.transform td', factHTML).empty().append(fact.readableTransform());
+
                 $('#dimensions', factHTML).empty();
                 const taxonomyDefinedAspects = fact.aspects().filter(a => a.isTaxonomyDefined());
                 if (taxonomyDefinedAspects.length === 0) {

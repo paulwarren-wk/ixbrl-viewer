@@ -6,7 +6,7 @@ import { isodateToHuman } from "./util.js"
 import { QName } from "./qname.js"
 import { Aspect } from "./aspect.js";
 import { Period } from './period.js';
-import { formatNumber, localId } from "./util.js";
+import { formatNumber, localId, TRR_NAMES } from "./util.js";
 import Decimal from "decimal.js";
 import { Interval } from './interval.js';
 
@@ -237,6 +237,10 @@ export class Fact {
         return this.ixNode.scale;
     }
 
+    transform() {
+        return this.ixNode.transform;
+    }
+
     duplicates() {
         return this.report.getAlignedFacts(this);
     }
@@ -302,6 +306,17 @@ export class Fact {
             return label;
         }
         return scale.toString();
+    }
+
+    readableTransform() {
+        if (this.ixNode.transform === undefined) {
+            return i18next.t("common.noTransform");
+        }
+        const trr_name = TRR_NAMES[this.ixNode.transform.namespace];
+        if (trr_name !== undefined) {
+            return `${this.ixNode.transform.localname} (${trr_name})`;
+        }
+        return this.ixNode.transform.qname;
     }
 
     identifier() {
