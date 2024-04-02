@@ -160,6 +160,12 @@ export class iXBRLViewer {
             $('html').attr("lang", "en-US");
         }
 
+        for (const attr of document.documentElement.attributes) {
+            if (attr.name.startsWith('xmlns')) {
+                doc.documentElement.setAttribute(attr.name, attr.value);
+            }
+        }
+
         $('head').children().not("script").not("style#ixv-style").not("link#ixv-favicon").appendTo($(iframe).contents().find('head'));
 
         $('<title>').text(docTitle).appendTo($('head'));
