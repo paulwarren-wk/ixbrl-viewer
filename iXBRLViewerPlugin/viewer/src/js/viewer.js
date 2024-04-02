@@ -140,7 +140,6 @@ export class Viewer {
 
     _wrapUntaggedNumbers(n, docIndex, ignoreFullMatch) {
         const viewer = this;
-        const ixHiddenStyleRE = /(?:^|\s|;)-(?:sec|esef)-ix-hidden:\s*([^\s;]+)/;
 
         n.contents().each(function () {
             if (this.nodeType === Node.ELEMENT_NODE) {
@@ -162,7 +161,7 @@ export class Viewer {
                 if (!(
                         name === 'NONFRACTION' ||
                         (name === 'NONNUMERIC' && this.getAttribute('format') !== null) ||
-                        (this.hasAttribute('style') && this.getAttribute('style').match(ixHiddenStyleRE))
+                        getIXHiddenLinkStyle(this) !== null
                 )) {
                     viewer._wrapUntaggedNumbers($(this), docIndex, name === 'NONNUMERIC');
                 }
