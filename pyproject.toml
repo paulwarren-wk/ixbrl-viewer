@@ -30,18 +30,18 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     'lxml>=4,<6',
-    'pycountry>=22,<24'
+    'pycountry>=22,<25'
 ]
 [project.optional-dependencies]
 arelle = [
     'arelle_release==2.*',
 ]
 dev = [
-    'flake8==7.0.0',
+    'flake8==7.1.0',
     'lxml-stubs==0.5.1',
-    'mypy==1.8.0',
-    'pytest==8.1.0',
-    'typing-extensions==4.10.0',
+    'mypy==1.10.0',
+    'pytest==8.2.2',
+    'typing-extensions==4.12.2',
 ]
 
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html#entry-points-for-plugins
