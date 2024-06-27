@@ -88,20 +88,21 @@ class IXBRLViewerBuilder:
         self.reports = reports
         # Arbitrary ModelXbrl used for logging
         self.logger_model = reports[0]
-        self.taxonomyData = {
+        self.viewerData = {
             "sourceReports": [],
             "features": [],
+            "units": {},
         }
         self.basenameSuffix = basenameSuffix
         self.currentTargetReport = None
 
     def enableFeature(self, featureName: str):
-        if featureName in self.taxonomyData["features"]:
+        if featureName in self.viewerData["features"]:
             return
         featureNames = [c.key for c in FEATURE_CONFIGS]
         assert featureName in featureNames, \
             f'Given feature name `{featureName}` does not match any defined features: {featureNames}'
-        self.taxonomyData["features"].append(featureName)
+        self.viewerData["features"].append(featureName)
 
     def outputFilename(self, filename):
         (base, ext) = os.path.splitext(filename)
@@ -137,6 +138,14 @@ class IXBRLViewerBuilder:
             label = next((rt.definition for rt in rts if rt.definition is not None), None)
             if label is not None:
                 self.currentTargetReport["roleDefs"].setdefault(prefix,{})["en"] = label
+
+    def addUTRDefinition(self, utrEntry):
+        if utrEntry.isSimple:
+            name = self.nsmap.qname(QName(self.nsmap.getPrefix(utrEntry.nsUnit), utrEntry.nsUnit, utrEntry.unitId))
+            self.viewerData["units"].setdefault(name, {
+                "s": utrEntry.symbol,
+                "n": getattr(utrEntry, "unitName", utrEntry.unitId),
+            })
 
     def addConcept(self, report: ModelXbrl, concept, dimensionType = None):
         if concept is None:
@@ -266,6 +275,9 @@ class IXBRLViewerBuilder:
         if f.isNumeric:
             if f.unit is not None and len(f.unit.measures[0]):
                 aspects['u'] = self.oimUnitString(f.unit)
+                if len(f.utrEntries) == 1:
+                    self.addUTRDefinition(next(iter(f.utrEntries)))
+
             else:
                 # The presence of the unit aspect is used by the viewer to
                 # identify numeric facts.  If the fact has no unit (invalid
@@ -327,7 +339,7 @@ class IXBRLViewerBuilder:
 
     def addViewerData(self, viewerFile, scriptUrl):
         viewerFile.xmlDocument = deepcopy(viewerFile.xmlDocument)
-        taxonomyDataJSON = self.escapeJSONForScriptTag(json.dumps(self.taxonomyData, indent=1, allow_nan=False))
+        viewerDataJSON = self.escapeJSONForScriptTag(json.dumps(self.viewerData, indent=1, allow_nan=False))
 
         for child in viewerFile.xmlDocument.getroot():
             if child.tag == '{http://www.w3.org/1999/xhtml}body':
@@ -352,7 +364,7 @@ class IXBRLViewerBuilder:
                 # auto detection due to its length
                 e = etree.SubElement(child, "{http://www.w3.org/1999/xhtml}script", nsmap = nsmap)
                 e.set("type", "application/x.ixbrl-viewer+json")
-                e.text = taxonomyDataJSON
+                e.text = viewerDataJSON
                 child.append(etree.Comment("END IXBRL VIEWER EXTENSIONS"))
                 return True
         return False
@@ -372,7 +384,7 @@ class IXBRLViewerBuilder:
         sourceReport = {
             "targetReports": []
         }
-        self.taxonomyData["sourceReports"].append(sourceReport)
+        self.viewerData["sourceReports"].append(sourceReport)
         return sourceReport
 
     def createViewer(
@@ -480,19 +492,19 @@ class IXBRLViewerBuilder:
                 for localDoc, docTypes in localDocs.items()
             }
 
-        self.taxonomyData["prefixes"] = self.nsmap.prefixmap
-        self.taxonomyData["roles"] = self.roleMap.prefixmap
+        self.viewerData["prefixes"] = self.nsmap.prefixmap
+        self.viewerData["roles"] = self.roleMap.prefixmap
 
         if showValidations:
-            self.taxonomyData["validation"] = self.validationErrors()
+            self.viewerData["validation"] = self.validationErrors()
 
         if packageDownloadURL is not None:
-            self.taxonomyData["filingDocuments"] = packageDownloadURL
+            self.viewerData["filingDocuments"] = packageDownloadURL
         elif len(self.reports) == 1 and os.path.dirname(self.reports[0].modelDocument.filepath).endswith('.zip'):
             filingDocZipPath = os.path.dirname(self.reports[0].modelDocument.filepath)
             filingDocZipName = os.path.basename(filingDocZipPath)
             iv.addFilingDoc(filingDocZipPath)
-            self.taxonomyData["filingDocuments"] = filingDocZipName
+            self.viewerData["filingDocuments"] = filingDocZipName
 
         if not self.addViewerData(iv.files[0], scriptUrl):
             return None
