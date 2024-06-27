@@ -1,6 +1,6 @@
 // See COPYRIGHT.md for copyright information
 
-import { measureLabel, NAMESPACE_ISO4217 } from "./util";
+import { measureLabel, measureName, NAMESPACE_ISO4217 } from "./util";
 
 export class Unit {
     
@@ -49,6 +49,43 @@ export class Unit {
      */
     value() {
         return this._value;
+    }
+
+    measureHTML(m) {
+        const span = document.createElement("span");
+        const name = measureName(this._reportSet, m);
+        if (name !== undefined) {
+            span.setAttribute("title", name);
+        }
+        span.append(document.createTextNode(measureLabel(this._reportSet, m)));
+        return span;
+    }
+
+    partsHTML(parts) {
+        const span = document.createElement("span");
+        if (parts.length > 1) {
+            span.appendChild(document.createTextNode("("));
+        }
+        for (const [i, m] of parts.entries()) {
+            span.appendChild(this.measureHTML(m));
+            if (i < parts.length - 1) {
+                span.appendChild(document.createTextNode(" * "))
+            }
+        }
+        if (parts.length > 1) {
+            span.appendChild(document.createTextNode(")"));
+        }
+        return span;
+    }
+
+    html() {
+        const span = document.createElement("span");
+        span.append(this.partsHTML(this._numerators));
+        if (this._denominators.length > 0) {
+            span.append(document.createTextNode(" / "));
+            span.append(this.partsHTML(this._denominators));
+        }
+        return span;
     }
 }
 
