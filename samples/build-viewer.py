@@ -56,7 +56,17 @@ class CntlrCreateViewer(Cntlr.Cntlr):
         self.modelManager.validate()
 
         try:
-            generateViewer(self, outPath, scriptUrl, showValidationMessages=True, useStubViewer=useStubViewer, features=features, copyScript=False)
+            viewerBuilder = iXBRLViewerPlugin.IXBRLViewerBuilder(self, useStubViewer = False, basenameSuffix="-viewer")
+            for feature in features:
+                viewerBuilder.enableFeature(feature)
+
+            for model in self.modelManager.loadedModelXbrls:
+                viewerBuilder.processModel(model)
+
+            viewer = viewerBuilder.createViewer(scriptUrl = scriptUrl, showValidations = True)
+            viewer.save(outPath)
+
+            #generateViewer(self, outPath, scriptUrl, showValidationMessages=True, useStubViewer=useStubViewer, features=features, copyScript=False)
         except iXBRLViewerPlugin.iXBRLViewer.IXBRLViewerBuilderError as e:
             print(e)
             sys.exit(1)
