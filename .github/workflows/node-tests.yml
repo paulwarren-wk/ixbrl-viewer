@@ -15,17 +15,17 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-12
-          - ubuntu-22.04
+          - macos-14
+          - ubuntu-24.04
           - windows-2022
         node-version:
           - '18'
           - '20'
-          - '21'
+          - '22'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4.1.7
-      - uses: actions/setup-node@v4.0.3
+      - uses: actions/checkout@v4.2.1
+      - uses: actions/setup-node@v4.0.4
         with:
           cache: 'npm'
           check-latest: true

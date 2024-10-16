@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       node_version:
-        default: '20'
+        default: '22'
         description: 'Node version to use'
         required: false
         type: string
@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       node_version:
-        default: '20'
+        default: '22'
         description: 'Node version to use'
         required: true
         type: string
@@ -30,14 +30,14 @@ permissions: {}
 
 jobs:
   build-package:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout ixbrl-viewer
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0
       - name: Install Node.js
-        uses: actions/setup-node@v4.0.3
+        uses: actions/setup-node@v4.0.4
         with:
           cache: 'npm'
           check-latest: true
@@ -47,7 +47,7 @@ jobs:
       - name: Build ixbrlviewer.js
         run: make prod
       - name: Install Python
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v5.2.0
         with:
           cache: 'pip'
           cache-dependency-path: '**/pyproject.toml'
@@ -60,13 +60,13 @@ jobs:
       - name: Build Python package
         run: python -m build
       - name: Upload source distribution artifact
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: source distribution
           if-no-files-found: error
           path: dist/*.tar.gz
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4.3.4
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: wheel
           if-no-files-found: error
@@ -77,11 +77,9 @@ jobs:
     environment: release
     permissions:
       contents: write
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags')
     steps:
-      - name: Install twine
-        run: pip install -U twine
       - name: Download source distribution artifact
         uses: actions/download-artifact@v4.1.8
         with:
@@ -95,9 +93,9 @@ jobs:
           TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
           TWINE_REPOSITORY: ${{ github.repository == 'Arelle/ixbrl-viewer' && 'pypi' || 'testpypi' }}
-        run: twine upload ./*
+        run: pipx run twine upload ./*
       - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2.0.6
+        uses: softprops/action-gh-release@v2.0.8
         with:
           fail_on_unmatched_files: true
           files: './*'
