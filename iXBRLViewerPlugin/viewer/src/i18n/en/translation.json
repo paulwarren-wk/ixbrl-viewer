@@ -98,6 +98,12 @@
     "searchResults": "Search Results",
     "searchTitle": "Search",
     "settingsMenu": "Settings Menu",
+    "settings": {
+        "viewerLanguage": {
+            "title": "Viewer language",
+            "documentation": "Choose if XBRL viewer's appearance should be light or dark."
+        }
+    },
     "showAnalysisChart": "Show analysis chart",
     "showTextOnly": "Show text only",
     "summary": {
