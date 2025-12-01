@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout ixbrl-viewer
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
       - name: Install Node.js
@@ -47,7 +47,7 @@ jobs:
       - name: Build ixbrlviewer.js
         run: make prod
       - name: Install Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6.1.0
         with:
           cache: 'pip'
           cache-dependency-path: '**/pyproject.toml'
@@ -95,7 +95,7 @@ jobs:
           TWINE_REPOSITORY: ${{ github.repository == 'Arelle/ixbrl-viewer' && 'pypi' || 'testpypi' }}
         run: pipx run twine upload ./*
       - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           fail_on_unmatched_files: true
           files: './*'
