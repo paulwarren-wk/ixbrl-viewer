@@ -30,17 +30,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install Node.js
-        uses: actions/setup-node@v6.0.0
+        uses: actions/setup-node@v6.1.0
         with:
           check-latest: true
           node-version: latest
           registry-url: 'https://registry.npmjs.org'
       - name: Download ixbrlviewer.js artifact
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: ixbrlviewer.js
       - name: Download npm artifact
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: npm package
       - name: Publish with npm
@@ -48,7 +48,7 @@ jobs:
           NPM_CONFIG_DRY_RUN: ${{ github.repository != 'Arelle/ixbrl-viewer' }}
         run: npm publish ixbrl-viewer-*.tgz --access public
       - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           fail_on_unmatched_files: true
           files: './*'
