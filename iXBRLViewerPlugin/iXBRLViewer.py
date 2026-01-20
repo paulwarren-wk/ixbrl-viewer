@@ -270,11 +270,11 @@ class IXBRLViewerBuilder:
         aspects = {
             "c": conceptName,
             "e": self.nsmap.qname(QName(self.nsmap.getPrefix(scheme,"e"), scheme, ident)),
-            "m": isMandatory
         }
 
         factData = {
             "a": aspects,
+            "m": isMandatory
         }
 
         if f.isNil:

@@ -17,6 +17,13 @@ export class Fact {
         this.vuid = factId;
         this.linkedFacts = [];
         this._footnotes = [];
+        // "mandatory" was previously treated as an aspect. Now treat it as a
+        // fact property so it doesn't affect fact alignment, or show up in
+        // charts.
+        if (this.f.a.m !== undefined) {
+            this.f.m = this.f.a.m;
+            delete this.f.a.m;
+        }
     }
 
     localId() {
@@ -24,7 +31,7 @@ export class Fact {
     }
 
     isMandatory() {
-        return this.f.a.m
+        return this.f.m
     }
 
     getLabel(rolePrefix, withPrefix) {
