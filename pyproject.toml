@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=79,<81", "wheel~=0.45", "setuptools_scm[toml]>=8.3,<10.0"]
+requires = ["setuptools>=79,<83", "wheel~=0.45", "setuptools_scm[toml]>=8.3,<10.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -37,7 +37,7 @@ arelle = [
 dev = [
     'flake8==7.3.0',
     'lxml-stubs==0.5.1',
-    'mypy==1.18.2',
+    'mypy==1.19.1',
     'pytest==8.4.2',
     'typing-extensions==4.15.0',
 ]
