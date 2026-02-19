@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=79,<82", "wheel~=0.45", "setuptools_scm[toml]>=8.3,<10.0"]
+requires = ["setuptools>=79,<83", "wheel~=0.45", "setuptools_scm[toml]>=8.3,<10.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -39,7 +39,7 @@ dev = [
     'flake8==7.3.0',
     'mypy==1.19.1',
     'pytest==9.0.2',
-    'types-lxml==2026.1.1',
+    'types-lxml==2026.2.16',
     'typing-extensions==4.15.0',
 ]
 
